@@ -1,0 +1,6 @@
+_build/*
+.ocamlformat
+*.pdf
+notes.md
+test.ml
+.vscode/*

@@ -1,0 +1,21 @@
+(executable
+ (name main)
+ (modules
+  ident
+  asttypes
+  parser
+  lexer
+  parse_ast
+  typed_ast
+  typed_ast_utils
+  typed_ast_printer
+  typing
+  scheduling
+  main
+  norm_ast)
+ (flags
+  (:standard -w +33+39 -warn-error -A)))
+
+(ocamllex lexer)
+
+(ocamlyacc parser)

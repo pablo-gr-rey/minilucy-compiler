@@ -1,0 +1,44 @@
+node half_add(a, b : bool) returns (s, co : bool);
+let
+    s = a <> b;
+    co = a and b;
+tel;
+
+-- node bad(a: int) returns (b, c: int);
+-- let
+--    b = c;
+--    c = b;
+-- tel;
+
+node test(a: bool; b: bool when not a) returns (c: bool when a);
+var d: bool when e; e: bool when not d;
+let
+    (c, d, e) = (a, b, a);
+--    c = a when not b;
+--     c = b and (a when a);
+tel;
+
+node test2(a, b: int) returns (c, d: int);
+let
+   (c, d) = if a < b then (a, b) else (b, a);
+tel;
+
+node count(a: bool) returns (s: int);
+let
+    s = (0 -> pre s) + (if a then 1 else 0);
+tel;
+
+node count_2(a: bool) returns (s1, s2: int);
+let
+   s1 = count(a);
+   s2 = count(not a);
+tel;
+
+-- node regulator (cruise_speed, speed : real; rst : bool)
+-- returns (throttle : real);
+-- var delta, aux : real;
+-- let
+-- delta = cruise_speed - speed;
+-- throttle = delta * 10.0 + aux * 0.2;
+-- aux = if rst then delta else delta + aux;
+-- tel
