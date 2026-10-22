@@ -62,6 +62,8 @@ let rec print_exp fmt e =
   | TE_merge (v, e1, e2) ->
       fprintf fmt "merge %s @[(@[%a@])@] @[(@[%a@])@]" v.name print_exp e1
         print_exp e2
+  | TE_fby (e1, e2) ->
+      fprintf fmt "@[(@[%a@]) fby (@[%a@])@]" print_exp e1 print_exp e2
 
 and print_arg_list fmt e_list =
   match e_list with

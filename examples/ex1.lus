@@ -10,12 +10,14 @@ tel;
 --    c = b;
 -- tel;
 
-node test(a: bool; b: bool when not a) returns (c: bool when a);
-var d: bool when e; e: bool when not d;
+node test(a: bool; b: bool when not a; bb: bool when a; f: int) returns (c: bool when a);
+var d: int when a; e: int;
+-- var e: int;
 let
-    (c, d, e) = (a, b, a);
---    c = a when not b;
---     c = b and (a when a);
+    -- (c, d) = (merge a (true -> (bb, (f+1) when a)) (false -> (not b, (f-1) when not a))) when a;
+    c = bb and (a when a);
+    d = (1 fby e) when a;
+    e = merge a (true -> d) (false -> 4 when not a);
 tel;
 
 node test2(a, b: int) returns (c, d: int);

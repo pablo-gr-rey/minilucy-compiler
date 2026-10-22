@@ -306,16 +306,32 @@ and type_expr_desc env loc = function
       let tel = List.map (type_expr env) el in
       ( TE_tuple tel,
         List.map (fun e -> base_ty_of_ty e.texpr_loc e.texpr_type) tel )
-  | PE_when _ ->
-      error loc (Unimplemented "typing when")
-      (* TODO *)
-      (* begin
-      let texpr = type_expr env expr and tv = type_expr env v in
-      if tv.texpr_type = [ Tbool ] then (TE_when (texpr, tv), texpr.texpr_type)
-      else error tv.texpr_loc (ExpectedType ([ Tbool ], tv.texpr_type))
-    end *)
-  | PE_merge _ -> error loc (Unimplemented "typing merge")
-(* TODO *)
+  | PE_when (expr, b, ck) -> begin
+      let texpr = type_expr env expr in
+      if not (M.mem ck env) then error loc (UnboundVar ck);
+      let ck_id, ck_type, _, _ = M.find ck env in
+      if ck_type <> Tbool then error loc (ExpectedType ([ Tbool ], [ ck_type ]));
+      (TE_when (texpr, b, ck_id), texpr.texpr_type)
+    end
+  | PE_merge (ck, cons1, e1, cons2, e2) -> begin
+      let te1 = type_expr env e1 and te2 = type_expr env e2 in
+      if cons1 = cons2 then
+        error loc
+          (Other "must have one case for true and one case for false in merge");
+      if not (compatible te1.texpr_type te2.texpr_type) then
+        error loc (ExpectedType (te2.texpr_type, te1.texpr_type));
+      if not (M.mem ck env) then error loc (UnboundVar ck);
+      let ck_id, ck_type, _, _ = M.find ck env in
+      if ck_type <> Tbool then error loc (ExpectedType ([ Tbool ], [ ck_type ]));
+      ( (if cons1 then TE_merge (ck_id, te1, te2) else TE_merge (ck_id, te2, te1)),
+        te1.texpr_type )
+    end
+  | PE_fby (e1, e2) -> begin
+      let te1 = type_expr env e1 and te2 = type_expr env e2 in
+      if not (compatible te1.texpr_type te2.texpr_type) then
+        error loc (ExpectedType (te2.texpr_type, te1.texpr_type));
+      (TE_fby (te1, te2), te1.texpr_type)
+    end
 
 and type_args env loc params_ty el =
   let tel = List.map (type_expr env) el in
@@ -365,9 +381,9 @@ and type_patt_desc env loc patt =
           pl
       in
       (* on transforme une liste de [(x, ty, ck)] en [x], [ty], [ck]*)
-      List.fold_left
-        (fun (l1, l2, l3) (e1, e2, e3) -> (e1 :: l1, e2 :: l2, e3 :: l3))
-        ([], [], []) pl_tyl
+      List.fold_right
+        (fun (e1, e2, e3) (l1, l2, l3) -> (e1 :: l1, e2 :: l2, e3 :: l3))
+        pl_tyl ([], [], [])
 
 let type_equation env eq =
   let patt = type_patt env eq.peq_patt in

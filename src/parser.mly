@@ -24,6 +24,7 @@
 %token END
 %token EOF
 %token EQUAL
+%token FBY
 %token NEQ
 %token REAL
 %token <string> IDENT
@@ -201,8 +202,8 @@ expr:
 	{ mk_expr (PE_when ($1, true, $3)) }
 | expr WHEN NOT IDENT
 	{ mk_expr (PE_when ($1, false, $4)) }
-| MERGE IDENT expr expr
-	{ mk_expr (PE_merge ($2, $3, $4))}
+| MERGE IDENT LPAREN CONST_BOOL ARROW expr RPAREN LPAREN CONST_BOOL ARROW expr RPAREN
+	{ mk_expr (PE_merge ($2, $4, $6, $9, $11))}
 | MINUS expr /* %prec uminus */
     { mk_expr (PE_op (Op_sub, [$2])) }
 | NOT expr
@@ -211,6 +212,8 @@ expr:
     { mk_expr (PE_pre ($2)) }
 | LPAREN expr COMMA expr_comma_list RPAREN
     { mk_expr (PE_tuple ($2::$4)) }
+| expr FBY expr
+	{ mk_expr (PE_fby ($1, $3))}
 ;
 
 const:

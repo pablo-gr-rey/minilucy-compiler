@@ -14,7 +14,7 @@
   main
   norm_ast)
  (flags
-  (:standard -w +33+39 -warn-error -A)))
+  (:standard -w +33+39+8 -warn-error -A)))
 
 (ocamllex lexer)
 

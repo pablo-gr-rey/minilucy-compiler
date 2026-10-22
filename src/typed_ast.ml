@@ -17,7 +17,11 @@ and t_expr_desc =
   | TE_tuple of t_expr list
   | TE_when of
       t_expr * bool * Ident.t (* true = when var; false = when not var*)
-  | TE_merge of Ident.t * t_expr * t_expr
+  | TE_merge of
+      Ident.t
+      * t_expr
+      * t_expr (* merge x (true -> e1) (false -> e2) for clarity *)
+  | TE_fby of t_expr * t_expr
 
 type t_patt = {
   tpatt_desc : Ident.t list;

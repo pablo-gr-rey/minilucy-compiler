@@ -30,8 +30,9 @@ let rec add_vars_of_exp s { texpr_desc = e; _ } =
   | TE_app (_, l) -> List.fold_left add_vars_of_exp s l
   | TE_prim (_, l) -> List.fold_left add_vars_of_exp s l
   | TE_tuple l -> List.fold_left add_vars_of_exp s l
-  | TE_when _ -> raise SchedulingUnimplemented (* TODO *)
-  | TE_merge _ -> raise SchedulingUnimplemented (* TODO *)
+  | TE_when (e, _, x) -> add_vars_of_exp (S.add x s) e
+  | TE_merge (x, e1, e2) -> add_vars_of_exp (add_vars_of_exp (S.add x s) e1) e2
+  | TE_fby (e1, _) -> add_vars_of_exp s e1
 
 let schedule_equs inputs equs =
   (* Construction du graphe de dépendance entre les variables. *)
