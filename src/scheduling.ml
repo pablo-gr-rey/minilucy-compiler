@@ -13,13 +13,12 @@ module Graph = Set.Make (struct
     if c <> 0 then c else S.compare s1 s2
 end)
 
-(** [add_vars_of_patt s patt] ajoute à l'ensemble [s] les variables introduites
-    par le motif [patt]. *)
-let add_vars_of_patt s { tpatt_desc = p; _ } =
-  List.fold_left (fun s x -> S.add x s) s p
+(** [add_vars_of_patt s patt] ajoute à l'ensemble [s] les variables introduites par le motif [patt].
+*)
+let add_vars_of_patt s { tpatt_desc = p; _ } = List.fold_left (fun s x -> S.add x s) s p
 
-(** [add_vars_of_exp s exp] ajoute à l'ensemble [s] les variables dont
-    l'expression [exp] dépend instantanément. *)
+(** [add_vars_of_exp s exp] ajoute à l'ensemble [s] les variables dont l'expression [exp] dépend
+    instantanément. *)
 let rec add_vars_of_exp s { texpr_desc = e; _ } =
   match e with
   | TE_const _ -> s
@@ -46,12 +45,8 @@ let schedule_equs inputs equs =
   in
   (* Suppression des dépendances aux entrées. *)
   let g =
-    let s_inputs =
-      List.fold_left (fun acc (x, _, _) -> S.add x acc) S.empty inputs
-    in
-    Graph.fold
-      (fun (y, s, e) g -> Graph.add (y, S.diff s s_inputs, e) g)
-      g Graph.empty
+    let s_inputs = List.fold_left (fun acc (x, _, _) -> S.add x acc) S.empty inputs in
+    Graph.fold (fun (y, s, e) g -> Graph.add (y, S.diff s s_inputs, e) g) g Graph.empty
   in
   (* Tri topologique des equations *)
   let rec exists_loop topo g =
@@ -60,16 +55,8 @@ let schedule_equs inputs equs =
       let g1, g2 = Graph.partition (fun (_, s, _) -> S.is_empty s) g in
       if Graph.is_empty g1 then raise Causality;
       let sv = Graph.fold (fun (x, _, _) s -> S.add x s) g1 S.empty in
-      let g =
-        Graph.fold
-          (fun (y, s, e) g -> Graph.add (y, S.diff s sv, e) g)
-          g2 Graph.empty
-      in
-      let topo =
-        Graph.fold
-          (fun (_, _, e) l -> if List.mem e l then l else e :: l)
-          g1 topo
-      in
+      let g = Graph.fold (fun (y, s, e) g -> Graph.add (y, S.diff s sv, e) g) g2 Graph.empty in
+      let topo = Graph.fold (fun (_, _, e) l -> if List.mem e l then l else e :: l) g1 topo in
       exists_loop topo g
   in
   exists_loop [] g

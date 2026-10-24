@@ -19,24 +19,21 @@ let spec =
     ("-norm-only", Arg.Set norm_only, "  stops after normalization");
     ("-verbose", Arg.Set verbose, "print intermediate transformations");
     ("-v", Arg.Set verbose, "print intermediate transformations");
+    ("-print-id", Arg.Set Ident.print_id, "print variables ID");
   ]
 
 let file, main_node =
   let file = ref None in
   let main = ref None in
   let set_file s =
-    if not (Filename.check_suffix s ".lus") then
-      raise (Arg.Bad "no .lus extension");
+    if not (Filename.check_suffix s ".lus") then raise (Arg.Bad "no .lus extension");
     file := Some s
   in
   let set_main s = main := Some s in
   let cpt = ref 0 in
   let set s =
     incr cpt;
-    match !cpt with
-    | 1 -> set_file s
-    | 2 -> set_main s
-    | _ -> raise (Arg.Bad "Too many arguments")
+    match !cpt with 1 -> set_file s | 2 -> set_main s | _ -> raise (Arg.Bad "Too many arguments")
   in
   Arg.parse spec set usage;
   ( (match !file with
@@ -63,6 +60,7 @@ let () =
     let f = Parser.file Lexer.token lb in
     close_in c;
     if !parse_only then exit 0;
+
     let ft = Typing.type_file f in
     if !verbose then begin
       Format.printf "/**************************************/@.";
@@ -71,7 +69,14 @@ let () =
       Typed_ast_printer.print_node_list_std ft
     end;
     if !type_only then exit 0;
-    if main_node = "" then exit 0;
+
+    let nt = Norm.norm_file ft in
+    if !verbose then begin
+      Format.printf "/**************************************/@.";
+      Format.printf "/* Norm ast                           */@.";
+      Format.printf "/**************************************/@.";
+      Norm_ast_printer.print_node_list_std nt
+    end;
 
     (* XXX TODO XXX *)
     Format.printf "Don't know@.";

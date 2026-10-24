@@ -1,8 +1,8 @@
-node half_add(a, b : bool) returns (s, co : bool);
-let
-    s = a <> b;
-    co = a and b;
-tel;
+-- node half_add(a, b : bool) returns (s, co : bool);
+-- let
+--     s = a <> b;
+--     co = a and b;
+-- tel;
 
 -- node bad(a: int) returns (b, c: int);
 -- let
@@ -10,31 +10,54 @@ tel;
 --    c = b;
 -- tel;
 
-node test(a: bool; b: bool when not a; bb: bool when a; f: int) returns (c: bool when a);
-var d: int when a; e: int;
--- var e: int;
-let
-    -- (c, d) = (merge a (true -> (bb, (f+1) when a)) (false -> (not b, (f-1) when not a))) when a;
-    c = bb and (a when a);
-    d = (1 fby e) when a;
-    e = merge a (true -> d) (false -> 4 when not a);
-tel;
-
 node test2(a, b: int) returns (c, d: int);
 let
    (c, d) = if a < b then (a, b) else (b, a);
 tel;
 
-node count(a: bool) returns (s: int);
+node test0(a, b: int) returns (c, d: int);
 let
-    s = (0 -> pre s) + (if a then 1 else 0);
+--    (c, d) = if true then test2 (pre a, pre b) else test2 (a, b);
+    (c, d) = test2 (pre a, pre b);
 tel;
 
-node count_2(a: bool) returns (s1, s2: int);
+node test(a: bool; b: bool when not a; bb: bool when a; f: int) returns (c: bool when a);
+var d: int when a; e: int; g: int; h: int;
+-- var e: int;
 let
-   s1 = count(a);
-   s2 = count(not a);
+    -- (c, d) = (merge a (true -> (bb, (f+1) when a)) (false -> (not b, (f-1) when not a))) when a;
+    c = (bb => bb) and (a when a);
+    -- d = (1 fby e) when a;
+    d = (merge a (true -> 1) (false -> 3)) when a;
+    -- e = merge a (true -> d) (false -> 4 when not a);
+    h = 5 + 6;
+    (e, g) = if true then test2(pre e, pre g) else test2(pre g, pre e) fby (4,6);
+    -- (d, e) = if true then (1 when a, 2) else (4 when a, 5);
 tel;
+
+node test3(a: bool; b: int when a; c: int when a) returns (d: int when a; e: int when a);
+var f: bool when a;
+let
+    f = (true -> false) when a;
+    (d, e) = (merge a (true -> test2(b, c)) (false -> (1 when not a, 2 when not a))) when a;
+tel;
+
+node hide(x: int) returns (o: bool; y:int when o);
+let
+    o = x >= 0;
+    y = x when o;
+tel;
+
+-- node count(a: bool) returns (s: int);
+-- let
+--     s = (0 -> pre s) + (if a then 1 else 0);
+-- tel;
+
+-- node count_2(a: bool) returns (s1, s2: int);
+-- let
+--    s1 = count(a);
+--    s2 = count(not a);
+-- tel;
 
 -- node regulator (cruise_speed, speed : real; rst : bool)
 -- returns (throttle : real);

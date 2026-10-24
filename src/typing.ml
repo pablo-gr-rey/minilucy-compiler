@@ -47,18 +47,15 @@ let report fmt = function
   | UnboundVar id -> fprintf fmt "unbound variable %s" id
   | UnboundNode id -> fprintf fmt "unbound node %s" id
   | ExpectedType (t1, t2) ->
-      fprintf fmt "this expression has type %a but is expected to have type %a"
-        print_type t1 print_type t2
-  | ExpectedPattern ty ->
-      fprintf fmt "this pattern is expected to have type %a" print_type ty
+      fprintf fmt "this expression has type %a but is expected to have type %a" print_type t1
+        print_type t2
+  | ExpectedPattern ty -> fprintf fmt "this pattern is expected to have type %a" print_type ty
   | ExpectedBase ty ->
-      fprintf fmt
-        "this expression has type %a but is expected to have a type simple type"
+      fprintf fmt "this expression has type %a but is expected to have a type simple type"
         print_type ty
   | ExpectedNum ty ->
-      fprintf fmt
-        "this expression has type %a but is expected to have type int or real"
-        print_type ty
+      fprintf fmt "this expression has type %a but is expected to have type int or real" print_type
+        ty
   | Clash id -> fprintf fmt "The variable %s is defined several times" id
   | TooFewArguments -> fprintf fmt "too few arguments"
   | TooManyArguments -> fprintf fmt "too many arguments"
@@ -85,10 +82,7 @@ module Delta = struct
 
   let nodes = Hashtbl.create 97
   let is_primitive f = List.mem_assoc f prims
-
-  let find n =
-    try (Hashtbl.find nodes n, false)
-    with Not_found -> (List.assoc n prims, true)
+  let find n = try (Hashtbl.find nodes n, false) with Not_found -> (List.assoc n prims, true)
 
   let add x t =
     let x' = Ident.make x Ident.Node in
@@ -111,19 +105,13 @@ module Gamma = struct
     M.add x (x', t, ck, io) env
 
   let adds loc io = List.fold_left (fun env (x, t, ck) -> add loc env x t ck io)
-
-  let find loc env x =
-    try M.find x env with Not_found -> error loc (UnboundVar x)
+  let find loc env x = try M.find x env with Not_found -> error loc (UnboundVar x)
 
   let patts_vars env =
-    M.fold
-      (fun _ (x, _, _, io) s -> if io = Vpatt then S.add x s else s)
-      env S.empty
+    M.fold (fun _ (x, _, _, io) s -> if io = Vpatt then S.add x s else s) env S.empty
 end
 
-let base_ty_of_ty loc t =
-  match t with [ t' ] -> t' | _ -> error loc (ExpectedBase t)
-
+let base_ty_of_ty loc t = match t with [ t' ] -> t' | _ -> error loc (ExpectedBase t)
 let compatible_base actual_ty expected_ty = actual_ty = expected_ty
 
 let compatible actual_ty expected_ty =
@@ -157,10 +145,7 @@ let real_op_of_int_op op =
 let not_a_nested_tuple e loc =
   match e with
   | PE_tuple el ->
-      List.iter
-        (fun e ->
-          match e.pexpr_desc with PE_tuple _ -> error loc FlatTuple | _ -> ())
-        el
+      List.iter (fun e -> match e.pexpr_desc with PE_tuple _ -> error loc FlatTuple | _ -> ()) el
   | _ -> assert false
 
 let rec is_constant env e =
@@ -179,6 +164,7 @@ let type_constant = function
   | Cbool _ -> [ Tbool ]
   | Cint _ -> [ Tint ]
   | Creal _ -> [ Treal ]
+  | Cnil -> failwith "type_constant nil"
 
 let rec type_expr env e =
   let desc, t = type_expr_desc env e.pexpr_loc e.pexpr_desc in
@@ -215,10 +201,7 @@ and type_expr_desc env loc = function
       begin match (te1.texpr_type, te2.texpr_type) with
       | [ Tint ], [ Tint ] -> (TE_op (op, [ te1; te2 ]), [ Tint ])
       | [ (Tint | Treal) ], [ (Tint | Treal) ] ->
-          ( TE_op
-              ( real_op_of_int_op op,
-                [ real_expr_of_expr te1; real_expr_of_expr te2 ] ),
-            [ Treal ] )
+          (TE_op (real_op_of_int_op op, [ real_expr_of_expr te1; real_expr_of_expr te2 ]), [ Treal ])
       | [ (Tint | Treal) ], ty -> error e2.pexpr_loc (ExpectedNum ty)
       | ty, _ -> error e1.pexpr_loc (ExpectedNum ty)
       end
@@ -247,8 +230,7 @@ and type_expr_desc env loc = function
       let te2 = type_expr env e2 in
       let ty2 = te2.texpr_type in
       begin match (ty1, ty2) with
-      | [ Tint ], [ Tint ] | [ Treal ], [ Treal ] ->
-          (TE_op (op, [ te1; te2 ]), [ Tbool ])
+      | [ Tint ], [ Tint ] | [ Treal ], [ Treal ] -> (TE_op (op, [ te1; te2 ]), [ Tbool ])
       | _ -> error loc (Other "invalid operands to comparison")
       end
   | PE_op (Op_if, [ e1; e2; e3 ]) ->
@@ -261,23 +243,22 @@ and type_expr_desc env loc = function
         (TE_op (Op_if, [ te1; te2; te3 ]), tt)
       else error loc (ExpectedType (te3.texpr_type, te2.texpr_type))
   | PE_op
-      ( ( Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge | Op_add | Op_sub
-        | Op_mul | Op_div | Op_mod | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f
-        | Op_not | Op_and | Op_or | Op_impl | Op_if ),
+      ( ( Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge | Op_add | Op_sub | Op_mul | Op_div
+        | Op_mod | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f | Op_not | Op_and | Op_or | Op_impl
+        | Op_if ),
         [] ) ->
       error loc TooFewArguments
   | PE_op
-      ( ( Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge | Op_add | Op_mul
-        | Op_div | Op_mod | Op_add_f | Op_mul_f | Op_div_f | Op_and | Op_or
-        | Op_impl | Op_if ),
+      ( ( Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge | Op_add | Op_mul | Op_div | Op_mod
+        | Op_add_f | Op_mul_f | Op_div_f | Op_and | Op_or | Op_impl | Op_if ),
         [ _ ] ) ->
       error loc TooFewArguments
   | PE_op (Op_not, [ _; _ ]) -> error loc TooManyArguments
   | PE_op (Op_if, [ _; _ ]) -> error loc TooFewArguments
   | PE_op
-      ( ( Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge | Op_add | Op_sub
-        | Op_mul | Op_div | Op_mod | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f
-        | Op_not | Op_and | Op_or | Op_impl | Op_if ),
+      ( ( Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge | Op_add | Op_sub | Op_mul | Op_div
+        | Op_mod | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f | Op_not | Op_and | Op_or | Op_impl
+        | Op_if ),
         _ ) ->
       error loc TooManyArguments
   | PE_app (f, el) ->
@@ -304,8 +285,7 @@ and type_expr_desc env loc = function
   | PE_tuple el as n ->
       not_a_nested_tuple n loc;
       let tel = List.map (type_expr env) el in
-      ( TE_tuple tel,
-        List.map (fun e -> base_ty_of_ty e.texpr_loc e.texpr_type) tel )
+      (TE_tuple tel, List.map (fun e -> base_ty_of_ty e.texpr_loc e.texpr_type) tel)
   | PE_when (expr, b, ck) -> begin
       let texpr = type_expr env expr in
       if not (M.mem ck env) then error loc (UnboundVar ck);
@@ -316,15 +296,13 @@ and type_expr_desc env loc = function
   | PE_merge (ck, cons1, e1, cons2, e2) -> begin
       let te1 = type_expr env e1 and te2 = type_expr env e2 in
       if cons1 = cons2 then
-        error loc
-          (Other "must have one case for true and one case for false in merge");
+        error loc (Other "must have one case for true and one case for false in merge");
       if not (compatible te1.texpr_type te2.texpr_type) then
         error loc (ExpectedType (te2.texpr_type, te1.texpr_type));
       if not (M.mem ck env) then error loc (UnboundVar ck);
       let ck_id, ck_type, _, _ = M.find ck env in
       if ck_type <> Tbool then error loc (ExpectedType ([ Tbool ], [ ck_type ]));
-      ( (if cons1 then TE_merge (ck_id, te1, te2) else TE_merge (ck_id, te2, te1)),
-        te1.texpr_type )
+      ((if cons1 then TE_merge (ck_id, te1, te2) else TE_merge (ck_id, te2, te1)), te1.texpr_type)
     end
   | PE_fby (e1, e2) -> begin
       let te1 = type_expr env e1 and te2 = type_expr env e2 in
@@ -351,18 +329,11 @@ and expected_type env e tt =
 
 and expected_base_type env e =
   let te = type_expr env e in
-  match te.texpr_type with
-  | [ _ ] -> te
-  | _ -> error e.pexpr_loc (ExpectedBase te.texpr_type)
+  match te.texpr_type with [ _ ] -> te | _ -> error e.pexpr_loc (ExpectedBase te.texpr_type)
 
 let rec type_patt env p =
   let desc, t, ck = type_patt_desc env p.ppatt_loc p.ppatt_desc in
-  {
-    tpatt_desc = desc;
-    tpatt_type = t;
-    tpatt_clock = ck;
-    tpatt_loc = p.ppatt_loc;
-  }
+  { tpatt_desc = desc; tpatt_type = t; tpatt_clock = ck; tpatt_loc = p.ppatt_loc }
 
 and type_patt_desc env loc patt =
   match patt with
@@ -390,9 +361,7 @@ let type_equation env eq =
   let expr = type_expr env eq.peq_expr in
   let well_typed = compatible expr.texpr_type patt.tpatt_type in
   if well_typed then { teq_patt = patt; teq_expr = expr }
-  else
-    error eq.peq_expr.pexpr_loc
-      (ExpectedType (expr.texpr_type, patt.tpatt_type))
+  else error eq.peq_expr.pexpr_loc (ExpectedType (expr.texpr_type, patt.tpatt_type))
 
 let add_vars_of_patt loc s { teq_patt = { tpatt_desc = p; _ }; _ } =
   let add x s =
@@ -405,9 +374,7 @@ let check_outputs loc env equs =
   let s = List.fold_left (add_vars_of_patt loc) S.empty equs in
   let not_defined = S.diff (Gamma.patts_vars env) s in
   if not (S.is_empty not_defined) then
-    error loc
-      (UndefinedOutputs
-         (List.map (fun x -> x.Ident.name) (S.elements not_defined)))
+    error loc (UndefinedOutputs (List.map (fun x -> x.Ident.name) (S.elements not_defined)))
 
 let check_causality loc inputs equs =
   begin try ignore (Scheduling.schedule_equs inputs equs)

@@ -1,7 +1,7 @@
 open Typed_ast
 
-(** [expr_map f expr] applique la fonction [f] aux sous-expressions directes de
-    [expr]. Cette fonction de fait pas de parcours en profondeur. *)
+(** [expr_map f expr] applique la fonction [f] aux sous-expressions directes de [expr]. Cette
+    fonction de fait pas de parcours en profondeur. *)
 let rec expr_map f expr =
   let desc =
     match expr.texpr_desc with
@@ -19,9 +19,8 @@ let rec expr_map f expr =
   in
   { expr with texpr_desc = desc }
 
-(** [expr_map f expr acc] applique la fonction [f] avec l'argument [acc] aux
-    sous-expressions directes de [expr]. Cette fonction de fait pas de parcours
-    en profondeur. *)
+(** [expr_map f expr acc] applique la fonction [f] avec l'argument [acc] aux sous-expressions
+    directes de [expr]. Cette fonction de fait pas de parcours en profondeur. *)
 let expr_map_fold f expr acc =
   let desc, acc =
     match expr.texpr_desc with

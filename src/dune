@@ -1,18 +1,20 @@
 (executable
  (name main)
  (modules
-  ident
   asttypes
-  parser
+  ident
   lexer
+  main
+  norm_ast_printer
+  norm_ast
+  norm
   parse_ast
+  parser
+  scheduling
+  typed_ast_printer
   typed_ast
   typed_ast_utils
-  typed_ast_printer
-  typing
-  scheduling
-  main
-  norm_ast)
+  typing)
  (flags
   (:standard -w +33+39+8 -warn-error -A)))
 

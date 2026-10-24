@@ -15,14 +15,9 @@ and p_expr_desc =
   | PE_arrow of p_expr * p_expr
   | PE_pre of p_expr
   | PE_tuple of p_expr list
-  | PE_when of
-      p_expr * bool * ident (* true = e when x ; false = e when not x *)
+  | PE_when of p_expr * bool * ident (* true = e when x ; false = e when not x *)
   | PE_merge of
-      ident
-      * bool
-      * p_expr
-      * bool
-      * p_expr (* merge x (b1 -> e, ..., e) (b2 -> e, ..., e) *)
+      ident * bool * p_expr * bool * p_expr (* merge x (b1 -> e, ..., e) (b2 -> e, ..., e) *)
   | PE_fby of p_expr * p_expr
 
 (* no fby for now *)

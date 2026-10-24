@@ -1,15 +1,22 @@
 type t = { id : int; name : string; kind : kind }
 and kind = Stream | Node | Prim
 
-let make =
+let print_id = ref false
+
+let make, make_temp =
   let cpt = ref 0 in
-  fun s kind ->
-    incr cpt;
-    { id = !cpt; name = s; kind }
+  ( (fun s kind ->
+      incr cpt;
+      { id = !cpt; name = s; kind }),
+    fun kind ->
+      incr cpt;
+      { id = !cpt; name = "temp" ^ string_of_int !cpt; kind } )
 
 (* let compare = Pervasives.compare *)
 let compare = Stdlib.compare (* changed for compatibility *)
-let print fmt x = Format.fprintf fmt "%s__%i" x.name x.id
+
+let print fmt x =
+  if !print_id then Format.fprintf fmt "%s__%i" x.name x.id else Format.fprintf fmt "%s" x.name
 
 (* Utils *)
 let print_to_string print x =

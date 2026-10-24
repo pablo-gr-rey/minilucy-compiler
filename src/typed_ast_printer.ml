@@ -21,6 +21,7 @@ let print_const fmt c =
   | Cbool b -> fprintf fmt "%b" b
   | Cint i -> fprintf fmt "%d" i
   | Creal f -> fprintf fmt "%f" f
+  | Cnil -> fprintf fmt "nil"
 
 let print_op fmt op =
   match op with
@@ -52,18 +53,14 @@ let rec print_exp fmt e =
   | TE_op (op, el) -> fprintf fmt "%a(%a)" print_op op print_arg_list el
   | TE_app (name, e_list) | TE_prim (name, e_list) ->
       fprintf fmt "%a(@[%a@])" Ident.print name print_arg_list e_list
-  | TE_arrow (l, r) ->
-      fprintf fmt "@[(@[%a@]) -> (@[%a@])@]" print_exp l print_exp r
+  | TE_arrow (l, r) -> fprintf fmt "@[(@[%a@]) -> (@[%a@])@]" print_exp l print_exp r
   | TE_pre e -> fprintf fmt "pre (@[%a@])" print_exp e
   | TE_tuple e_list -> fprintf fmt "(@[%a@])" print_tuple_arg_list e_list
   | TE_when (e, true, v) -> fprintf fmt "@[(@[%a@])] when %s" print_exp e v.name
-  | TE_when (e, false, v) ->
-      fprintf fmt "@[(@[%a@])] when not %s" print_exp e v.name
+  | TE_when (e, false, v) -> fprintf fmt "@[(@[%a@])] when not %s" print_exp e v.name
   | TE_merge (v, e1, e2) ->
-      fprintf fmt "merge %s @[(@[%a@])@] @[(@[%a@])@]" v.name print_exp e1
-        print_exp e2
-  | TE_fby (e1, e2) ->
-      fprintf fmt "@[(@[%a@]) fby (@[%a@])@]" print_exp e1 print_exp e2
+      fprintf fmt "merge %s @[(@[%a@])@] @[(@[%a@])@]" v.name print_exp e1 print_exp e2
+  | TE_fby (e1, e2) -> fprintf fmt "@[(@[%a@]) fby (@[%a@])@]" print_exp e1 print_exp e2
 
 and print_arg_list fmt e_list =
   match e_list with
@@ -84,9 +81,8 @@ and print_const_exp fmt ce_list =
   | h :: t -> fprintf fmt "%a,@ %a" print_const h print_const_exp t
 
 let print_eq fmt eq =
-  fprintf fmt "@[(%a) = @[%a@]@]"
-    (print_list Ident.print ",")
-    eq.teq_patt.tpatt_desc print_exp eq.teq_expr
+  fprintf fmt "@[(%a) = @[%a@]@]" (print_list Ident.print ",") eq.teq_patt.tpatt_desc print_exp
+    eq.teq_expr
 
 let print_base_type fmt bty =
   match bty with
@@ -101,20 +97,14 @@ let print_var_dec fmt (name, ty, ck) =
     (match ck with
     | TC_base -> ""
     | TC_when v -> " when " ^ v.name
-    | TC_whennot v -> " when not " ^ v.name)
+    | TC_whennot v -> " when not " ^ v.name
+    | TC_unknown -> " (unknown clock)")
 
 let print_var_dec_list = print_list print_var_dec ";"
 
 let print_node fmt nd =
-  fprintf fmt
-    "@[node %a(@[%a@]) returns (@[%a@])@\n\
-     var @[%a;@]@\n\
-     @[<v 2>let@ @[%a@]@]@\n\
-     tel@]"
-    Ident.print nd.tn_name print_var_dec_list nd.tn_input print_var_dec_list
-    nd.tn_output print_var_dec_list nd.tn_local
-    (print_list_eol print_eq ";")
-    nd.tn_equs
+  fprintf fmt "@[node %a(@[%a@]) returns (@[%a@])@\nvar @[%a;@]@\n@[<v 2>let@ @[%a@]@]@\ntel@]"
+    Ident.print nd.tn_name print_var_dec_list nd.tn_input print_var_dec_list nd.tn_output
+    print_var_dec_list nd.tn_local (print_list_eol print_eq ";") nd.tn_equs
 
-let print_node_list_std ndl =
-  List.iter (fun nd -> Format.printf "%a@\n@." print_node nd) ndl
+let print_node_list_std ndl = List.iter (fun nd -> Format.printf "%a@\n@." print_node nd) ndl
