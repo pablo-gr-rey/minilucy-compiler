@@ -350,38 +350,46 @@ let rec texpr_to_nexpr (vars : (typed_var * var_kind) VMap.t ref) (locals_ref : 
         (t2nce e2 (List.map (fun ck -> TC_whennot (ck, ck_var)) exp_clocks))
         expr.texpr_type exp_clocks
   | TE_fby (e1, e2) ->
-      (* we transform it into if true -> false then e1 else dummy fby e2 *)
+      (* we transform e1 fby e2 into if true -> false then e1 else dummy fby e2 *)
       (* aka n_var_fby = dummy fby e2; n_var_merge = merge tfbyf (true -> e1 when tfbyf) (false -> n_var_fby when tfbyf); n_var_merge *)
       (* TODO: reuse true fby false *)
       (* TODO: handle directly const fby e *)
       (* TODO: this could be better handled as a ncexpr *)
       let handle_v ne1 ne2 ty ck =
         (* e1 fby e2: temp1 = dummy fby e2; temp2 = if (true -> false) then e1 else temp1; temp2*)
-        let n_TfbyF, _, _ = make_temp_var Tbool ck in
-        equs_ref :=
-          NEQ_fby (n_TfbyF, Cbool true, make_nexpr (NE_const (Cbool false)) Tbool ck) :: !equs_ref;
         let n_var_fby, _, _ = make_temp_var ty ck in
-        equs_ref := NEQ_fby (n_var_fby, make_dummy_const ty, ne2) :: !equs_ref;
-        let n_var_merge, _, _ = make_temp_var ty ck in
-        let nce1w =
-          make_ncexpr
-            (NCE_expr (make_nexpr (NE_when (ne1, true, n_TfbyF)) ty (TC_when (ck, n_TfbyF))))
-            ty
-            (TC_when (ck, n_TfbyF))
-        in
-        let nce2w =
-          make_ncexpr
-            (NCE_expr
-               (make_nexpr
-                  (NE_when (make_nexpr (NE_ident n_var_fby) ty ck, false, n_TfbyF))
-                  ty
-                  (TC_whennot (ck, n_TfbyF))))
-            ty
-            (TC_whennot (ck, n_TfbyF))
-        in
-        equs_ref :=
-          NEQ_ce (n_var_merge, make_ncexpr (NCE_merge (n_TfbyF, nce1w, nce2w)) ty ck) :: !equs_ref;
-        make_nexpr (NE_ident n_var_merge) ty ck
+        match ne1.nexpr_desc with
+        | NE_const c ->
+            equs_ref := NEQ_fby (n_var_fby, c, ne2) :: !equs_ref;
+            make_nexpr (NE_ident n_var_fby) ty ck
+        | _ -> begin
+            let n_TfbyF, _, _ = make_temp_var Tbool ck in
+            equs_ref :=
+              NEQ_fby (n_TfbyF, Cbool true, make_nexpr (NE_const (Cbool false)) Tbool ck)
+              :: !equs_ref;
+            equs_ref := NEQ_fby (n_var_fby, make_dummy_const ty, ne2) :: !equs_ref;
+            let n_var_merge, _, _ = make_temp_var ty ck in
+            let nce1w =
+              make_ncexpr
+                (NCE_expr (make_nexpr (NE_when (ne1, true, n_TfbyF)) ty (TC_when (ck, n_TfbyF))))
+                ty
+                (TC_when (ck, n_TfbyF))
+            in
+            let nce2w =
+              make_ncexpr
+                (NCE_expr
+                   (make_nexpr
+                      (NE_when (make_nexpr (NE_ident n_var_fby) ty ck, false, n_TfbyF))
+                      ty
+                      (TC_whennot (ck, n_TfbyF))))
+                ty
+                (TC_whennot (ck, n_TfbyF))
+            in
+            equs_ref :=
+              NEQ_ce (n_var_merge, make_ncexpr (NCE_merge (n_TfbyF, nce1w, nce2w)) ty ck)
+              :: !equs_ref;
+            make_nexpr (NE_ident n_var_merge) ty ck
+          end
       in
       map4 handle_v (t2ne e1 exp_clocks) (t2ne e2 exp_clocks) expr.texpr_type exp_clocks
 

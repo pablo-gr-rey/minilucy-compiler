@@ -56,6 +56,7 @@ let report_loc (b, e) =
   eprintf "File \"%s\", line %d, characters %d-%d:\n" file l fc lc
 
 let () =
+  Format.set_margin 100;
   let c = open_in file in
   let lb = Lexing.from_channel c in
   try
@@ -109,6 +110,10 @@ let () =
   | Norm.Error (l, e) ->
       report_loc l;
       eprintf "%a\n@." Norm.report e;
+      exit 1
+  | Simpl_dataflow.Error (l, e) ->
+      report_loc l;
+      eprintf "%a\n@." Simpl_dataflow.report e;
       exit 1
   | e ->
       eprintf "Anomaly: %s\n@." (Printexc.to_string e);
