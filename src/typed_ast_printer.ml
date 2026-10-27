@@ -90,15 +90,30 @@ let print_base_type fmt bty =
   | Tint -> fprintf fmt "int"
   | Treal -> fprintf fmt "real"
 
-(* let print_type = print_list print_cbase_type "*" *)
+let rec print_clock fmt = function
+  | TC_base -> fprintf fmt "base"
+  | TC_when (ck, x) ->
+      print_clock fmt ck;
+      fprintf fmt " when %s" x.name
+  | TC_whennot (ck, x) ->
+      print_clock fmt ck;
+      fprintf fmt " when not %s" x.name
+
+let rec print_clock_list fmt = function
+  | [] -> ()
+  | [ c ] -> print_clock fmt c
+  | c :: cks -> fprintf fmt "%a; %a" print_clock c print_clock_list cks
 
 let print_var_dec fmt (name, ty, ck) =
   fprintf fmt "%a : %a%s" Ident.print name print_base_type ty
     (match ck with
     | TC_base -> ""
-    | TC_when v -> " when " ^ v.name
-    | TC_whennot v -> " when not " ^ v.name
-    | TC_unknown -> " (unknown clock)")
+    | TC_when (TC_base, v) -> " when " ^ v.name
+    | TC_whennot (TC_base, v) -> " when not " ^ v.name
+    | _ ->
+        failwith
+          (asprintf "invalid clock %a for input/output/local variable %a" print_clock ck Ident.print
+             name))
 
 let print_var_dec_list = print_list print_var_dec ";"
 

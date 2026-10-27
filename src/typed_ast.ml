@@ -4,7 +4,7 @@ open Asttypes
 
 type typed_var = Ident.t * base_ty * t_clock
 and t_expr = { texpr_desc : t_expr_desc; texpr_type : ty; texpr_loc : location }
-and t_clock = TC_base | TC_when of Ident.t | TC_whennot of Ident.t | TC_unknown
+and t_clock = TC_base | TC_when of t_clock * Ident.t | TC_whennot of t_clock * Ident.t
 
 and t_expr_desc =
   | TE_const of const

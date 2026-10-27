@@ -20,6 +20,7 @@ type error =
   | FlatTuple
   | UndefinedOutputs of string list
   | InputVar of string
+  | InvalidIOClock of string
   | Causality
   | Unimplemented of string
 
@@ -67,6 +68,7 @@ let report fmt = function
         (fun fmt -> List.iter (fun x -> fprintf fmt "%s " x))
         l
   | InputVar s -> fprintf fmt "%s is an input variable" s
+  | InvalidIOClock s -> fprintf fmt "Input or output variable %s is expected to be on base clock" s
   | Causality -> fprintf fmt "problem of causality"
   | Unimplemented s -> fprintf fmt "not implemented: %s" s
 
@@ -392,12 +394,16 @@ let parse_clocks loc env =
     let ck' =
       match ck with
       | PC_base -> TC_base
-      | PC_when id -> TC_when (find_ck id)
-      | PC_whennot id -> TC_whennot (find_ck id)
+      | PC_when id -> TC_when (TC_base, find_ck id)
+      | PC_whennot id -> TC_whennot (TC_base, find_ck id)
     in
     M.add x (x', ty, ck', io) n_env
   in
   M.fold parse_var env Gamma.empty
+
+(* TODO: for now, all input and output must be on the base clock *)
+let check_base_clock loc ((var, _, ck) : typed_var) =
+  if ck <> TC_base then error loc (InvalidIOClock var.name)
 
 let type_node n =
   let env = Gamma.adds n.pn_loc Vpatt Gamma.empty (n.pn_output @ n.pn_local) in
@@ -429,6 +435,10 @@ let type_node n =
         (x', ty, ck))
       n.pn_local
   in
+
+  List.iter (check_base_clock n.pn_loc) input;
+  List.iter (check_base_clock n.pn_loc) output;
+
   let node =
     {
       tn_name = name;

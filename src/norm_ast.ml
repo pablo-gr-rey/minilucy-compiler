@@ -3,7 +3,12 @@
 open Asttypes
 open Typed_ast
 
-type n_expr = { nexpr_desc : n_expr_desc; nexpr_type : base_ty; nexpr_loc : location }
+type n_expr = {
+  nexpr_desc : n_expr_desc;
+  nexpr_type : base_ty;
+  nexpr_loc : location;
+  nexpr_clock : t_clock;
+}
 
 and n_expr_desc =
   | NE_const of const
@@ -12,12 +17,18 @@ and n_expr_desc =
   | NE_binop of binop * n_expr * n_expr
   | NE_when of n_expr * bool * Ident.t (* true = when var; false = when not var*)
 
-and n_cexpr = { ncexpr_desc : n_cexpr_desc; ncexpr_type : base_ty; ncexpr_loc : location }
+and n_cexpr = {
+  ncexpr_desc : n_cexpr_desc;
+  ncexpr_type : base_ty;
+  ncexpr_loc : location;
+  ncexpr_clock : t_clock;
+}
 
 and n_cexpr_desc =
   | NCE_expr of n_expr
   | NCE_merge of Ident.t * n_cexpr * n_cexpr (* merge x (true -> ce1) (false -> ce2) *)
-  | NCE_ite of n_expr * n_cexpr * n_cexpr
+
+(* | NCE_ite of n_expr * n_cexpr * n_cexpr *)
 
 type n_eq =
   | NEQ_ce of Ident.t * n_cexpr (* x = ce *)

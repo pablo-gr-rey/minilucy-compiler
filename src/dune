@@ -11,6 +11,7 @@
   parse_ast
   parser
   scheduling
+  simpl_dataflow
   typed_ast_printer
   typed_ast
   typed_ast_utils

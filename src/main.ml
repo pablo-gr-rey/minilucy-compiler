@@ -8,6 +8,7 @@ let usage = "usage: " ^ Sys.argv.(0) ^ " [options] file.lus main"
 let parse_only = ref false
 let type_only = ref false
 let norm_only = ref false
+let simpl_only = ref false
 let lucy_printer = ref false
 let ocaml_printer = ref true
 let verbose = ref false
@@ -17,6 +18,7 @@ let spec =
     ("-parse-only", Arg.Set parse_only, "  stops after parsing");
     ("-type-only", Arg.Set type_only, "  stops after typing");
     ("-norm-only", Arg.Set norm_only, "  stops after normalization");
+    ("-simpl-only", Arg.Set simpl_only, "  stops after simplifying dataflow");
     ("-verbose", Arg.Set verbose, "print intermediate transformations");
     ("-v", Arg.Set verbose, "print intermediate transformations");
     ("-print-id", Arg.Set Ident.print_id, "print variables ID");
@@ -77,6 +79,15 @@ let () =
       Format.printf "/**************************************/@.";
       Norm_ast_printer.print_node_list_std nt
     end;
+    if !norm_only then exit 0;
+
+    let simpl_nt = List.map Simpl_dataflow.simpl_dataflow nt in
+    if !verbose then begin
+      Format.printf "/**************************************/@.";
+      Format.printf "/* Simplified Norm ast                */@.";
+      Format.printf "/**************************************/@.";
+      Norm_ast_printer.print_node_list_std simpl_nt
+    end;
 
     (* XXX TODO XXX *)
     Format.printf "Don't know@.";
@@ -94,6 +105,10 @@ let () =
   | Typing.Error (l, e) ->
       report_loc l;
       eprintf "%a\n@." Typing.report e;
+      exit 1
+  | Norm.Error (l, e) ->
+      report_loc l;
+      eprintf "%a\n@." Norm.report e;
       exit 1
   | e ->
       eprintf "Anomaly: %s\n@." (Printexc.to_string e);

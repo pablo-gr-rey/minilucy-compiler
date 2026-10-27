@@ -1,0 +1,33 @@
+node h(b: bool) returns (e: bool);
+let
+    e = (not b) fby b;
+tel;
+
+node redge(b: bool) returns (e: bool);
+let
+    e = false -> ((b and not pre b) or (not b and pre b));
+tel;
+
+node mod_count(m: int) returns (out: int);
+let
+    out = 0 -> ((1 + pre out) mod m);
+tel;
+
+node tf_count(b: bool) returns (c: int);
+var ct: int when b; cf: int when not b;
+let
+    ct = 1 -> (1 + pre ct);
+    cf = 1 -> (1 + pre cf);
+    c = merge b (true -> ct) (false -> cf);
+tel;
+    
+node test(b: bool) returns (c: int; d: int; e: int; f: int);
+var a: int when b;
+let
+    a = mod_count(3) when b;
+
+    c = if b then mod_count(3) else mod_count(4);
+    d = merge b (true -> mod_count(3) when b) (false -> mod_count(4) when not b);
+    e = merge b (true -> mod_count(3 when b)) (false -> mod_count(4 when not b));
+    f = merge b (true -> a) (false -> 1);
+tel;

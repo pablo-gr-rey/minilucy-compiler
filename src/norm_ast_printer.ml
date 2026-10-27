@@ -1,6 +1,7 @@
 open Format
 open Asttypes
 open Norm_ast
+open Typed_ast
 open Typed_ast_printer
 
 let print_unop fmt u =
@@ -49,9 +50,6 @@ let rec print_ncexpr fmt nce =
   | NCE_merge (var, nce1, nce2) ->
       fprintf fmt "@[merge %a (@[true -> @[%a@]@]) (@[false -> @[%a@]@]@])" Ident.print var
         print_ncexpr nce1 print_ncexpr nce2
-  | NCE_ite (ne, nce1, nce2) ->
-      fprintf fmt "@[if (@[%a@]) then (@[%a@]) else (@[%a@])@]" print_nexpr ne print_ncexpr nce1
-        print_ncexpr nce2
 
 let print_neq fmt = function
   | NEQ_ce (var, nce) -> fprintf fmt "@[%a = @[%a@]@]" Ident.print var print_ncexpr nce

@@ -15,55 +15,85 @@ let
    (c, d) = if a < b then (a, b) else (b, a);
 tel;
 
+node example(x: int; c: bool) returns (y: int);
+let
+    y = x;
+tel
+
 node test0(a, b: int) returns (c, d: int);
 let
 --    (c, d) = if true then test2 (pre a, pre b) else test2 (a, b);
     (c, d) = test2 (pre a, pre b);
 tel;
 
-node test(a: bool; b: bool when not a; bb: bool when a; f: int) returns (c: bool when a);
-var d: int when a; e: int; g: int; h: int;
--- var e: int;
+node testA(a, b: int) returns (c, d: int);
 let
-    -- (c, d) = (merge a (true -> (bb, (f+1) when a)) (false -> (not b, (f-1) when not a))) when a;
-    c = (bb => bb) and (a when a);
-    -- d = (1 fby e) when a;
-    d = (merge a (true -> 1) (false -> 3)) when a;
-    -- e = merge a (true -> d) (false -> 4 when not a);
-    h = 5 + 6;
-    (e, g) = if true then test2(pre e, pre g) else test2(pre g, pre e) fby (4,6);
-    -- (d, e) = if true then (1 when a, 2) else (4 when a, 5);
+    (c, d) = (a, b) fby (a, b);
 tel;
 
-node test3(a: bool; b: int when a; c: int when a) returns (d: int when a; e: int when a);
-var f: bool when a;
+node alt() returns (a: bool);
 let
-    f = (true -> false) when a;
-    (d, e) = (merge a (true -> test2(b, c)) (false -> (1 when not a, 2 when not a))) when a;
+    a = false fby not (pre a);
+tel
+
+node testB(a, b: bool) returns (c, d: bool; x: int; y: int);
+var e: bool when a; g: bool when a; f: int when not a;
+let
+    c = a and b;
+    d = if alt() then false else true;
+    y = if alt() then 4 else 1;
+    -- (e, f) = if a then (b when a, 1) else (false when a, 3);
+    -- (e, f) = if true then (b when a, 1) else (false,
+    g = false; 
+    e = merge g (true -> ((true when a) when g)) (false -> ((false when a) when not g));
+    f = 4 when not a;
+    -- (e, f) = merge d (true -> ((true when a) when d, (y when not a) when d)) (false -> ((false when a) when not d, ((y when not a) + 1) when not d)) ;
+    x = merge a (true -> 2) (false -> f);
 tel;
 
-node hide(x: int) returns (o: bool; y:int when o);
-let
-    o = x >= 0;
-    y = x when o;
-tel;
-
--- node count(a: bool) returns (s: int);
+-- node test(a: bool; b: bool when not a; bb: bool when a; f: int) returns (c: bool when a);
+-- var d: int when a; e: int; g: int; h: int;
+-- -- var e: int;
 -- let
---     s = (0 -> pre s) + (if a then 1 else 0);
+--     -- (c, d) = (merge a (true -> (bb, (f+1) when a)) (false -> (not b, (f-1) when not a))) when a;
+--     c = (bb => bb) and (a when a);
+--     -- d = (1 fby e) when a;
+--     d = (merge a (true -> 1) (false -> 3)) when a;
+--     -- e = merge a (true -> d) (false -> 4 when not a);
+--     h = 5 + 6;
+--     (e, g) = if true then test2(pre e, pre g) else test2(pre g, pre e) fby (4,6);
+--     -- (d, e) = if true then (1 when a, 2) else (4 when a, 5);
 -- tel;
 
--- node count_2(a: bool) returns (s1, s2: int);
+-- node test3(a: bool; b: int when a; c: int when a) returns (d: int when a; e: int when a);
+-- var f: bool when a;
 -- let
---    s1 = count(a);
---    s2 = count(not a);
+--     f = (true -> false) when a;
+--     (d, e) = (merge a (true -> test2(b, c)) (false -> (1 when not a, 2 when not a))) when a;
 -- tel;
 
--- node regulator (cruise_speed, speed : real; rst : bool)
--- returns (throttle : real);
--- var delta, aux : real;
+-- node hide(x: int) returns (o: bool; y:int when o);
 -- let
--- delta = cruise_speed - speed;
--- throttle = delta * 10.0 + aux * 0.2;
--- aux = if rst then delta else delta + aux;
--- tel
+--     o = x >= 0;
+--     y = x when o;
+-- tel;
+
+node count(a: bool) returns (s: int);
+let
+    s = (0 -> pre s) + (if a then 1 else 0);
+tel;
+
+node count_2(a: bool) returns (s1, s2: int);
+let
+   s1 = count(a);
+   s2 = count(not a);
+tel;
+
+node regulator (cruise_speed, speed : real; rst : bool)
+returns (throttle : real);
+var delta, aux : real;
+let
+delta = cruise_speed - speed;
+throttle = delta * 10.0 + aux * 0.2;
+aux = if rst then delta else delta + pre aux;
+tel
