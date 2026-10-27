@@ -55,7 +55,6 @@ let print_neq fmt = function
   | NEQ_ce (var, nce) -> fprintf fmt "@[%a = @[%a@]@]" Ident.print var print_ncexpr nce
   | NEQ_fby (var, cst, ne) ->
       fprintf fmt "@[%a = @[%a@] fby @[%a@]@]" Ident.print var print_const cst print_nexpr ne
-  | NEQ_pre (var, ne) -> fprintf fmt "@[%a = pre @[(%a)@]@]" Ident.print var print_nexpr ne
   | NEQ_app (patt, f, nel) | NEQ_prim (patt, f, nel) ->
       fprintf fmt "@[(%a) = @[%a (@[%a@])@]@]" (print_list Ident.print ",") patt.tpatt_desc
         Ident.print f (print_list print_nexpr ",") nel

@@ -33,7 +33,6 @@ and n_cexpr_desc =
 type n_eq =
   | NEQ_ce of Ident.t * n_cexpr (* x = ce *)
   | NEQ_fby of Ident.t * const * n_expr (* x = c fby e *)
-  | NEQ_pre of Ident.t * n_expr (* x = pre e *)
   | NEQ_app of t_patt * Ident.t * n_expr list (* x+ = f(e+) *)
   | NEQ_prim of t_patt * Ident.t * n_expr list (* x+ = f(e+) *)
 

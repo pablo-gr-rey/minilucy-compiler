@@ -287,13 +287,21 @@ let rec texpr_to_nexpr (vars : (typed_var * var_kind) VMap.t ref) (locals_ref : 
       in
       map4 handle_v (t2ne e1 exp_clocks) (t2ne e2 exp_clocks) expr.texpr_type exp_clocks *)
   | TE_pre e ->
+      (* pre e is equivalent to nil fby e *)
       (* we add temp variables and equations temp1 = pre e1, ... *)
-      let handle_v ne ty ck =
+      let make_nil ty = make_texpr (TE_const Cnil) [ ty ] in
+      let nils =
+        match e.texpr_type with
+        | [ ty ] -> make_nil ty
+        | tys -> make_texpr (TE_tuple (List.map make_nil e.texpr_type)) tys
+      in
+      t2ne (make_texpr (TE_fby (nils, e)) e.texpr_type) exp_clocks
+      (* let handle_v ne ty ck =
         let n_var, _, _ = make_temp_var ty ck in
         equs_ref := NEQ_pre (n_var, ne) :: !equs_ref;
         make_nexpr (NE_ident n_var) ty ck
       in
-      map3 handle_v (t2ne e exp_clocks) expr.texpr_type exp_clocks
+      map3 handle_v (t2ne e exp_clocks) expr.texpr_type exp_clocks *)
   | TE_tuple le ->
       (* we cannot have nested tuples, so each element is already reduced *)
       List.map2 (fun e ck -> unpack (t2ne e [ ck ])) le exp_clocks

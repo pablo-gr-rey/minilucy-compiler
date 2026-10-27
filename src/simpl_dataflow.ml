@@ -132,7 +132,6 @@ let simpl_dataflow node =
   let replace_eq = function
     | NEQ_ce (v, nce) -> NEQ_ce (find_repl v, replace_nce nce)
     | NEQ_fby (v, c, ne) -> NEQ_fby (find_repl v, c, replace_ne ne)
-    | NEQ_pre (v, ne) -> NEQ_pre (find_repl v, replace_ne ne)
     | NEQ_app (patt, f, args) -> NEQ_app (repl_patt patt, f, List.map replace_ne args)
     | NEQ_prim (patt, f, args) -> NEQ_prim (repl_patt patt, f, List.map replace_ne args)
   in
