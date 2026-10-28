@@ -23,7 +23,7 @@ type var_type = { v_var : typed_var; v_kind : var_kind }
 module VMap = Map.Make (struct
   type t = Ident.t
 
-  let compare = compare
+  let compare (v1 : Ident.t) (v2 : Ident.t) = compare v1.id v2.id
 end)
 
 (* why doesn't ocaml have these super useful functions in its stdlib?? *)

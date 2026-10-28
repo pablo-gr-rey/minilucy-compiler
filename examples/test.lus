@@ -22,9 +22,16 @@ tel;
 node test1() returns (a: int);
 var b, c: int;
 let
-    (b, c) = test3();
     a = b + c;
+    (b, c) = test3();
 tel;
+
+node test4() returns (x, y, z: int);
+let
+    z = y + 1;
+    x = 0 fby z;
+    y = 0 fby x;
+tel
 
 -- node tf_count(b: bool) returns (c: int);
 -- var ct: int when b; cf: int when not b;

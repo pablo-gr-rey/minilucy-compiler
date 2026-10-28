@@ -36,6 +36,14 @@ let
     a = false fby not (pre a);
 tel
 
+node bad() returns (a: bool);
+var e: bool; f: bool when e;
+let
+    a = true;
+    f = false when e;
+    e = true;
+tel;
+
 node testB(a, b: bool) returns (c, d: bool; x: int; y: int);
 var e: bool when a; g: bool when a; f: int when not a;
 let

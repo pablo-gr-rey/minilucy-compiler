@@ -9,8 +9,7 @@ let parse_only = ref false
 let type_only = ref false
 let norm_only = ref false
 let simpl_only = ref false
-let lucy_printer = ref false
-let ocaml_printer = ref true
+let sched_only = ref false
 let verbose = ref false
 
 let spec =
@@ -19,6 +18,7 @@ let spec =
     ("-type-only", Arg.Set type_only, "  stops after typing");
     ("-norm-only", Arg.Set norm_only, "  stops after normalization");
     ("-simpl-only", Arg.Set simpl_only, "  stops after simplifying dataflow");
+    ("-sched-only", Arg.Set sched_only, "  stops after scheduling");
     ("-verbose", Arg.Set verbose, "print intermediate transformations");
     ("-v", Arg.Set verbose, "print intermediate transformations");
     ("-print-id", Arg.Set Ident.print_id, "print variables ID");
@@ -85,14 +85,22 @@ let () =
     let simpl_nt = List.map Simpl_dataflow.simpl_dataflow nt in
     if !verbose then begin
       Format.printf "/**************************************/@.";
-      Format.printf "/* Simplified Norm ast                */@.";
+      Format.printf "/* Simplified norm ast                */@.";
       Format.printf "/**************************************/@.";
       Norm_ast_printer.print_node_list_std simpl_nt
     end;
+    if !simpl_only then exit 0;
 
-    (* XXX TODO XXX *)
-    Format.printf "Don't know@.";
+    let sched_nt = List.map Schedule_full.schedule simpl_nt in
+    if !verbose then begin
+      Format.printf "/**************************************/@.";
+      Format.printf "/* Scheduled norm ast                 */@.";
+      Format.printf "/**************************************/@.";
+      Norm_ast_printer.print_node_list_std sched_nt
+    end;
+    if !sched_only then exit 0;
 
+    (* TODO :o *)
     exit 0
   with
   | Lexical_error s ->
@@ -114,6 +122,10 @@ let () =
   | Simpl_dataflow.Error (l, e) ->
       report_loc l;
       eprintf "%a\n@." Simpl_dataflow.report e;
+      exit 1
+  | Schedule_full.Error (l, e) ->
+      report_loc l;
+      eprintf "%a\n@." Schedule_full.report e;
       exit 1
   | e ->
       eprintf "Anomaly: %s\n@." (Printexc.to_string e);

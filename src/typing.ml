@@ -103,8 +103,22 @@ module Gamma = struct
 
   let add loc env x t ck io =
     if M.mem x env then error loc (Clash x);
+
+    let find_ck id =
+      if not (M.mem id env) then error loc (UnboundVar id)
+      else
+        let var, _, _, _ = M.find id env in
+        var
+    in
+    let ck' =
+      match ck with
+      | PC_base -> TC_base
+      | PC_when id -> TC_when (TC_base, find_ck id)
+      | PC_whennot id -> TC_whennot (TC_base, find_ck id)
+    in
+
     let x' = Ident.make x Ident.Stream in
-    M.add x (x', t, ck, io) env
+    M.add x (x', t, ck', io) env
 
   let adds loc io = List.fold_left (fun env (x, t, ck) -> add loc env x t ck io)
   let find loc env x = try M.find x env with Not_found -> error loc (UnboundVar x)
@@ -383,32 +397,13 @@ let check_causality loc inputs equs =
   with Scheduling.Causality -> error loc Causality
   end
 
-let parse_clocks loc env =
-  let parse_var x (x', ty, ck, io) n_env =
-    let find_ck id =
-      if not (M.mem id env) then error loc (UnboundVar id)
-      else
-        let var, _, _, _ = M.find id env in
-        var
-    in
-    let ck' =
-      match ck with
-      | PC_base -> TC_base
-      | PC_when id -> TC_when (TC_base, find_ck id)
-      | PC_whennot id -> TC_whennot (TC_base, find_ck id)
-    in
-    M.add x (x', ty, ck', io) n_env
-  in
-  M.fold parse_var env Gamma.empty
-
 (* TODO: for now, all input and output must be on the base clock *)
 let check_base_clock loc ((var, _, ck) : typed_var) =
   if ck <> TC_base then error loc (InvalidIOClock var.name)
 
 let type_node n =
-  let env = Gamma.adds n.pn_loc Vpatt Gamma.empty (n.pn_output @ n.pn_local) in
-  let env = Gamma.adds n.pn_loc Vinput env n.pn_input in
-  let env = parse_clocks n.pn_loc env in
+  let env = Gamma.adds n.pn_loc Vinput Gamma.empty n.pn_input in
+  let env = Gamma.adds n.pn_loc Vpatt env (n.pn_output @ n.pn_local) in
   let equs = List.map (type_equation env) n.pn_equs in
   check_outputs n.pn_loc env equs;
   let t_in = List.map (fun (_, ty, _) -> ty) n.pn_input in
@@ -450,6 +445,7 @@ let type_node n =
     }
   in
   check_causality node.tn_loc node.tn_input equs;
+  (* TODO: useless now *)
   node
 
 let type_file f =
