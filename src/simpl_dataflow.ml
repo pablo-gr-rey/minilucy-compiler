@@ -117,17 +117,30 @@ let simpl_dataflow node =
     | eq -> eq :: eq_list
   in
 
+  let rec replace_ck = function
+    | TC_base -> TC_base
+    | TC_when (ck, v) -> TC_when (replace_ck ck, find_repl v)
+    | TC_whennot (ck, v) -> TC_whennot (replace_ck ck, find_repl v)
+  in
+
   let rec replace_ned = function
     | NE_const c -> NE_const c
     | NE_ident v -> NE_ident (find_repl v)
     | NE_unop (u, e) -> NE_unop (u, replace_ne e)
     | NE_binop (b, e1, e2) -> NE_binop (b, replace_ne e1, replace_ne e2)
     | NE_when (e, b, v) -> NE_when (replace_ne e, b, find_repl v)
-  and replace_ne ne = { ne with nexpr_desc = replace_ned ne.nexpr_desc }
+  and replace_ne ne =
+    { ne with nexpr_desc = replace_ned ne.nexpr_desc; nexpr_clock = replace_ck ne.nexpr_clock }
   and replace_nced = function
     | NCE_expr ne -> NCE_expr (replace_ne ne)
     | NCE_merge (v, nce1, nce2) -> NCE_merge (find_repl v, replace_nce nce1, replace_nce nce2)
-  and replace_nce nce = { nce with ncexpr_desc = replace_nced nce.ncexpr_desc } in
+  and replace_nce nce =
+    {
+      nce with
+      ncexpr_desc = replace_nced nce.ncexpr_desc;
+      ncexpr_clock = replace_ck nce.ncexpr_clock;
+    }
+  in
 
   let replace_eq = function
     | NEQ_ce (v, nce) -> NEQ_ce (find_repl v, replace_nce nce)

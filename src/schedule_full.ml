@@ -1,7 +1,6 @@
 open Asttypes
 open Typed_ast
 open Norm_ast
-open Typed_ast_printer
 
 type error = ScheduleError of string
 
