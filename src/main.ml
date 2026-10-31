@@ -10,6 +10,7 @@ let type_only = ref false
 let norm_only = ref false
 let simpl_only = ref false
 let sched_only = ref false
+let objc_only = ref false
 let verbose = ref false
 
 let spec =
@@ -19,6 +20,7 @@ let spec =
     ("-norm-only", Arg.Set norm_only, "  stops after normalization");
     ("-simpl-only", Arg.Set simpl_only, "  stops after simplifying dataflow");
     ("-sched-only", Arg.Set sched_only, "  stops after scheduling");
+    ("-objc-only", Arg.Set objc_only, "  stops after conversion to Obj-C");
     ("-verbose", Arg.Set verbose, "print intermediate transformations");
     ("-v", Arg.Set verbose, "print intermediate transformations");
     ("-print-id", Arg.Set Ident.print_id, "print variables ID");
@@ -100,6 +102,15 @@ let () =
     end;
     if !sched_only then exit 0;
 
+    let objc_nt = List.map Objc.translate_node sched_nt in
+    if !verbose then begin
+      Format.printf "/**************************************/@.";
+      Format.printf "/* Obj-C                              */@.";
+      Format.printf "/**************************************/@.";
+      Objc_ast_printer.print_def_list_std objc_nt
+    end;
+    if !objc_only then exit 0;
+
     (* TODO :o *)
     exit 0
   with
@@ -126,6 +137,10 @@ let () =
   | Schedule_full.Error (l, e) ->
       report_loc l;
       eprintf "%a\n@." Schedule_full.report e;
+      exit 1
+  | Objc.Error (l, e) ->
+      report_loc l;
+      eprintf "%a\n@." Objc.report e;
       exit 1
   | e ->
       eprintf "Anomaly: %s\n@." (Printexc.to_string e);

@@ -257,35 +257,6 @@ let rec texpr_to_nexpr (vars : (typed_var * var_kind) VMap.t ref) (locals_ref : 
           [ Tbool ]
       in
       t2ne (make_texpr (TE_op (Op_if, [ tfbyf; e1; e2 ])) expr.texpr_type) exp_clocks
-      (* let handle_v ne1 ne2 ty ck =
-        let n_TfbyF, _, _ = make_temp_var Tbool ck in
-        equs_ref :=
-          NEQ_fby (n_TfbyF, Cbool true, make_nexpr (NE_const (Cbool false)) Tbool ck) :: !equs_ref;
-        let n_var, _, _ = make_temp_var ty ck in
-        equs_ref :=
-          (* NEQ_ce
-            (n_var, make_ncexpr (NCE_ite (make_nexpr (NE_ident n_TfbyF) Tbool ck, ne1, ne2)) ty ck) *)
-          NEQ_ce
-            ( n_var,
-              make_ncexpr
-                (NCE_merge
-                   ( n_TfbyF,
-                     make_ncexpr
-                       (NCE_expr
-                          (make_nexpr (NE_when (ne1, true, n_TfbyF)) ty (TC_when (ck, n_TfbyF))))
-                       ty
-                       (TC_when (ck, n_TfbyF)),
-                     make_ncexpr
-                       (NCE_expr
-                          (make_nexpr (NE_when (ne2, false, n_TfbyF)) ty (TC_whennot (ck, n_TfbyF))))
-                       ty
-                       (TC_whennot (ck, n_TfbyF)) ))
-                ty ck )
-          :: !equs_ref;
-        
-        make_nexpr (NE_ident n_var) ty ck
-      in
-      map4 handle_v (t2ne e1 exp_clocks) (t2ne e2 exp_clocks) expr.texpr_type exp_clocks *)
   | TE_pre e ->
       (* pre e is equivalent to nil fby e *)
       (* we add temp variables and equations temp1 = pre e1, ... *)
@@ -417,24 +388,6 @@ and texpr_to_ncexpr (vars : (typed_var * var_kind) VMap.t ref) (locals_ref : typ
         (t2nce e1 (List.map (fun c -> TC_when (c, ck_var)) exp_clocks))
         (t2nce e2 (List.map (fun c -> TC_whennot (c, ck_var)) exp_clocks))
         expr.texpr_type exp_clocks
-  (* | TE_op (Op_if, el) ->
-      (* to clock if c then (e_1, ..., e_k) else (f_1, ..., f_k), for each i, e_i, f_i and cond_i must be valid on clock exp_i *)
-      begin match el with
-      | [ cond; e1; e2 ] -> begin
-          let handle_e nce1 nce2 typ ck =
-            let n_cond =
-              (* we have to recompute n_cond every time because the clock might be different *)
-              match t2ne cond [ ck ] with
-              | [ c ] -> c
-              | _ -> error_ "expected single value for if operand"
-            in
-            make_ncexpr (NCE_ite (n_cond, nce1, nce2)) typ ck
-          in
-          map4 handle_e (t2nce e1 exp_clocks) (t2nce e2 exp_clocks) expr.texpr_type exp_clocks
-        end
-      | _ -> error_other expr.texpr_loc "incoherent types of expression between then and else"
-      end *)
-  (* TODO: handle more cexprs directly (merge and ite whenever possible, as well as e.g. arrow and pre) *)
   | _ ->
       map3
         (fun e t ck -> make_ncexpr (NCE_expr e) t ck)
@@ -445,59 +398,27 @@ let norm_eq (vars : (typed_var * var_kind) VMap.t ref) (locals_ref : typed_var l
   (* TODO: too much duplication! *)
   let add_eq neq = equs_ref := neq :: !equs_ref in
 
-  (* we try to catch equations we can directly transform: fby, pre, app and prim *)
-  let shortcut =
-    begin match t_eq.teq_expr.texpr_desc with
-    (* | TE_fby (te1, te2) ->
-        (* if left-side is a const or tuple of const, great; if not, we have to create new variable *)
-        begin
-          let unpack_const e =
-            match e.texpr_desc with TE_const c -> c | _ -> failwith "failed to unpack const"
-          in
-          let is_const e = match e.texpr_desc with TE_const _ -> true | _ -> false in
-          let add_fby_cst var cst ne = add_eq (NEQ_fby (var, unpack_const cst, ne)) in
-          let handle_consts lcst = iter3 add_fby_cst t_eq.teq_patt.tpatt_desc lcst (t2ne te2) in
-          (* if left-side is a const or a tuple of const, we can directly convert into fbys *)
-          (* otherwise, we have to create temp variables for the left-side and directly assign *)
-          (* this is still better than using NEQ_ce with a temp variable only used for the fby *)
-          match te1.texpr_desc with
-          | TE_const _ ->
-              handle_consts [ te1 ];
-              true
-          | TE_tuple el when List.for_all is_const el ->
-              handle_consts el;
-              true
-          | _ -> false
-        end *)
-    | _ -> false
-    end
-  in
-
-  (* if we failed to find a good form, then we have to convert the right side to ncexprs and use assigns *)
-  (* TODO: if we get a NE_ident as the nces and it is only used there, we can remove it to simplify the dataflow *)
   let exp_cks = t_eq.teq_patt.tpatt_clock in
 
-  if not shortcut then begin
-    let nces = texpr_to_ncexpr vars locals_ref equs_ref t_eq.teq_expr exp_cks in
-    if List.length nces <> List.length t_eq.teq_patt.tpatt_desc then
-      error_other t_eq.teq_expr.texpr_loc
-        "incoherent length between number of variables %d and number of resulting ncexprs %d"
-        (List.length t_eq.teq_patt.tpatt_desc)
-        (List.length nces);
+  let nces = texpr_to_ncexpr vars locals_ref equs_ref t_eq.teq_expr exp_cks in
+  if List.length nces <> List.length t_eq.teq_patt.tpatt_desc then
+    error_other t_eq.teq_expr.texpr_loc
+      "incoherent length between number of variables %d and number of resulting ncexprs %d"
+      (List.length t_eq.teq_patt.tpatt_desc)
+      (List.length nces);
 
-    let handle var ty nce ck =
-      if ty <> nce.ncexpr_type then
-        error_other t_eq.teq_expr.texpr_loc
-          "type mismatch between variable (%a) and resulting ncexpr (%a)" print_base_type ty
-          print_base_type nce.ncexpr_type;
-      if ck <> nce.ncexpr_clock then
-        error_other t_eq.teq_expr.texpr_loc
-          "clock mismatch between variable (%a) and resulting ncexpr (%a)" print_clock ck
-          print_clock nce.ncexpr_clock;
-      add_eq (NEQ_ce (var, nce))
-    in
-    iter4 handle t_eq.teq_patt.tpatt_desc t_eq.teq_patt.tpatt_type nces exp_cks
-  end
+  let handle var ty nce ck =
+    if ty <> nce.ncexpr_type then
+      error_other t_eq.teq_expr.texpr_loc
+        "type mismatch between variable (%a) and resulting ncexpr (%a)" print_base_type ty
+        print_base_type nce.ncexpr_type;
+    if ck <> nce.ncexpr_clock then
+      error_other t_eq.teq_expr.texpr_loc
+        "clock mismatch between variable (%a) and resulting ncexpr (%a)" print_clock ck print_clock
+        nce.ncexpr_clock;
+    add_eq (NEQ_ce (var, nce))
+  in
+  iter4 handle t_eq.teq_patt.tpatt_desc t_eq.teq_patt.tpatt_type nces exp_cks
 
 let norm_node n =
   let locals_ref = ref n.tn_local in

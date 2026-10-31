@@ -28,8 +28,6 @@ and n_cexpr_desc =
   | NCE_expr of n_expr
   | NCE_merge of Ident.t * n_cexpr * n_cexpr (* merge x (true -> ce1) (false -> ce2) *)
 
-(* | NCE_ite of n_expr * n_cexpr * n_cexpr *)
-
 type n_eq =
   | NEQ_ce of Ident.t * n_cexpr (* x = ce *)
   | NEQ_fby of Ident.t * const * n_expr (* x = c fby e *)

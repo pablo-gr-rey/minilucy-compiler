@@ -33,6 +33,16 @@ let
     y = 0 fby x;
 tel
 
+node count(i:int) returns (o:int);
+let
+    o = (0 fby o) + i;
+tel
+
+node condact(c:bool; i:int) returns (o:int);
+let
+    o = merge c (true -> count(i when c)) (false -> (0 fby o) when not c);
+tel
+
 -- node tf_count(b: bool) returns (c: int);
 -- var ct: int when b; cf: int when not b;
 -- let

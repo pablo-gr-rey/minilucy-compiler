@@ -1,16 +1,19 @@
 type t = { id : int; name : string; kind : kind }
-and kind = Stream | Node | Prim
+and kind = Stream | Node | Prim | Object
 
 let print_id = ref false
 
-let make, make_temp =
+let make, make_temp, make_w_id =
   let cpt = ref 0 in
   ( (fun s kind ->
       incr cpt;
       { id = !cpt; name = s; kind }),
-    fun kind ->
+    (fun kind ->
       incr cpt;
-      { id = !cpt; name = "temp" ^ string_of_int !cpt; kind } )
+      { id = !cpt; name = "temp" ^ string_of_int !cpt; kind }),
+    fun s kind ->
+      incr cpt;
+      { id = !cpt; name = s ^ "_" ^ string_of_int !cpt; kind } )
 
 (* let compare = Pervasives.compare *)
 let compare = Stdlib.compare (* changed for compatibility *)

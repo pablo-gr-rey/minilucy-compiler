@@ -8,6 +8,9 @@
   norm_ast_printer
   norm_ast
   norm
+  objc
+  objc_ast
+  objc_ast_printer
   parse_ast
   parser
   scheduling
