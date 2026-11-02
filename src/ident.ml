@@ -1,5 +1,5 @@
 type t = { id : int; name : string; kind : kind }
-and kind = Stream | Node | Prim | Object
+and kind = Stream | Node | Prim | Object | Function | Struct
 
 let print_id = ref false
 
@@ -20,6 +20,9 @@ let compare = Stdlib.compare (* changed for compatibility *)
 
 let print fmt x =
   if !print_id then Format.fprintf fmt "%s__%i" x.name x.id else Format.fprintf fmt "%s" x.name
+
+let print_full fmt x = Format.fprintf fmt "%s__%i" x.name x.id
+let get_full x = Format.asprintf "%s__%i" x.name x.id
 
 (* Utils *)
 let print_to_string print x =

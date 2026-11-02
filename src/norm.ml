@@ -260,7 +260,7 @@ let rec texpr_to_nexpr (vars : (typed_var * var_kind) VMap.t ref) (locals_ref : 
   | TE_pre e ->
       (* pre e is equivalent to nil fby e *)
       (* we add temp variables and equations temp1 = pre e1, ... *)
-      let make_nil ty = make_texpr (TE_const Cnil) [ ty ] in
+      let make_nil ty = make_texpr (TE_const (Cnil ty)) [ ty ] in
       let nils =
         match e.texpr_type with
         | [ ty ] -> make_nil ty

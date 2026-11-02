@@ -180,7 +180,7 @@ let type_constant = function
   | Cbool _ -> [ Tbool ]
   | Cint _ -> [ Tint ]
   | Creal _ -> [ Treal ]
-  | Cnil -> failwith "type_constant nil"
+  | Cnil _ -> failwith "type_constant nil"
 
 let rec type_expr env e =
   let desc, t = type_expr_desc env e.pexpr_loc e.pexpr_desc in
@@ -400,6 +400,8 @@ let check_causality loc inputs equs =
 (* TODO: for now, all input and output must be on the base clock *)
 let check_base_clock loc ((var, _, ck) : typed_var) =
   if ck <> TC_base then error loc (InvalidIOClock var.name)
+
+(* let check_nonemp *)
 
 let type_node n =
   let env = Gamma.adds n.pn_loc Vinput Gamma.empty n.pn_input in

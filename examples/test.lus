@@ -1,3 +1,10 @@
+node counting(tick:bool; top:bool) returns (o: int);
+var v: int;
+let
+    o = if tick then v else 0 -> pre o + v;
+    v = if top then 1 else 0;
+tel;
+
 node h(b: bool) returns (e: bool);
 let
     e = (not b) fby b;
@@ -19,6 +26,18 @@ let
     b = mod_count(4);
 tel;
 
+node add_nomem(a, b: int) returns (c: int);
+let
+   c = a + b + 1;
+tel;
+
+node add_mem(a, b: int) returns (c: int);
+var o: int;
+let
+    c = a + b + o;
+    o = 0 fby (1 + pre o);
+tel;
+
 node test1() returns (a: int);
 var b, c: int;
 let
@@ -26,12 +45,20 @@ let
     (b, c) = test3();
 tel;
 
-node test4() returns (x, y, z: int);
+node test4mem() returns (x, y, z: int);
 let
-    z = y + 1;
+    z = add_mem(y, 1);
     x = 0 fby z;
     y = 0 fby x;
 tel
+
+node test4nomem() returns (x, y, z: int);
+let
+    z = add_nomem(y, 1);
+    x = 0 fby z;
+    y = 0 fby x;
+tel
+
 
 node count(i:int) returns (o:int);
 let

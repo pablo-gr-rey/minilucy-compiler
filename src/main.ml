@@ -12,6 +12,7 @@ let simpl_only = ref false
 let sched_only = ref false
 let objc_only = ref false
 let verbose = ref false
+let c_folder = ref ""
 
 let spec =
   [
@@ -24,6 +25,7 @@ let spec =
     ("-verbose", Arg.Set verbose, "print intermediate transformations");
     ("-v", Arg.Set verbose, "print intermediate transformations");
     ("-print-id", Arg.Set Ident.print_id, "print variables ID");
+    ("-output-folder", Arg.Set_string c_folder, "folder where .c and .h files are written");
   ]
 
 let file, main_node =
@@ -56,6 +58,17 @@ let report_loc (b, e) =
   let fc = b.pos_cnum - b.pos_bol + 1 in
   let lc = e.pos_cnum - b.pos_bol + 1 in
   eprintf "File \"%s\", line %d, characters %d-%d:\n" file l fc lc
+
+let write_file path content =
+  let oc = open_out path in
+  Fun.protect ~finally:(fun () -> close_out oc) (fun () -> output_string oc content)
+
+let write_outputs basename output_dir h_content c_content =
+  let h_path = Filename.concat output_dir (basename ^ ".h") in
+  let c_path = Filename.concat output_dir (basename ^ ".c") in
+
+  write_file h_path h_content;
+  write_file c_path c_content
 
 let () =
   Format.set_margin 100;
@@ -111,6 +124,9 @@ let () =
     end;
     if !objc_only then exit 0;
 
+    let basename = Filename.remove_extension (Filename.basename file) in
+    let h_file, c_file = C_printer.print_c_files objc_nt basename in
+    write_outputs basename !c_folder h_file c_file;
     (* TODO :o *)
     exit 0
   with

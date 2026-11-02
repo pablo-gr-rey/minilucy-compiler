@@ -10,6 +10,7 @@
 --    c = b;
 -- tel;
 
+
 node test2(a, b: int) returns (c, d: int);
 let
    (c, d) = if a < b then (a, b) else (b, a);

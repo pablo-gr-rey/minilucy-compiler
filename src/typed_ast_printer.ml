@@ -1,5 +1,5 @@
 (* code d'Adrien Guatto *)
-
+(* modifié par Pablo Rey *)
 open Format
 open Asttypes
 open Typed_ast
@@ -8,20 +8,34 @@ let rec print_list f sep fmt l =
   match l with
   | [] -> ()
   | [ x ] -> f fmt x
-  | h :: t -> fprintf fmt "%a%s@ %a" f h sep (print_list f sep) t
+  | h :: t -> fprintf fmt "%a%s%a" f h sep (print_list f sep) t
 
 let rec print_list_eol f sep fmt l =
   match l with
   | [] -> ()
   | [ x ] -> fprintf fmt "%a%s" f x sep
-  | h :: t -> fprintf fmt "%a%s@\n%a" f h sep (print_list_eol f sep) t
+  | h :: t -> fprintf fmt "%a%s@;%a" f h sep (print_list_eol f sep) t
+
+(* same as print_list_eol, but also prints a newline at the end unless the list is empty *)
+(* this allows to print several lists without adding too many or too few newlines *)
+let print_list_eol_last f sep fmt = function
+  | [] -> ()
+  | l ->
+      print_list_eol f sep fmt l;
+      fprintf fmt "@;"
+
+let print_base_type fmt bty =
+  match bty with
+  | Tbool -> fprintf fmt "bool"
+  | Tint -> fprintf fmt "int"
+  | Treal -> fprintf fmt "real"
 
 let print_const fmt c =
   match c with
   | Cbool b -> fprintf fmt "%b" b
   | Cint i -> fprintf fmt "%d" i
   | Creal f -> fprintf fmt "%f" f
-  | Cnil -> fprintf fmt "nil"
+  | Cnil ty -> fprintf fmt "nil (%a)" print_base_type ty
 
 let print_op fmt op =
   match op with
@@ -83,12 +97,6 @@ and print_const_exp fmt ce_list =
 let print_eq fmt eq =
   fprintf fmt "@[(%a) = @[%a@]@]" (print_list Ident.print ",") eq.teq_patt.tpatt_desc print_exp
     eq.teq_expr
-
-let print_base_type fmt bty =
-  match bty with
-  | Tbool -> fprintf fmt "bool"
-  | Tint -> fprintf fmt "int"
-  | Treal -> fprintf fmt "real"
 
 let rec print_clock fmt = function
   | TC_base -> fprintf fmt "base"

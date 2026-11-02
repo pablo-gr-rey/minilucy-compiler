@@ -1,7 +1,7 @@
 type location = Lexing.position * Lexing.position
 type base_ty = Tbool | Tint | Treal
 type ty = base_ty list
-type const = Cbool of bool | Cint of int | Creal of float | Cnil
+type const = Cbool of bool | Cint of int | Creal of float | Cnil of base_ty
 
 type op =
   | Op_eq
