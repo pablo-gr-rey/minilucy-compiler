@@ -13,6 +13,7 @@ let sched_only = ref false
 let objc_only = ref false
 let verbose = ref false
 let c_folder = ref ""
+let gen_c_main = ref false
 
 let spec =
   [
@@ -26,6 +27,7 @@ let spec =
     ("-v", Arg.Set verbose, "print intermediate transformations");
     ("-print-id", Arg.Set Ident.print_id, "print variables ID");
     ("-output-folder", Arg.Set_string c_folder, "folder where .c and .h files are written");
+    ("-gen-main", Arg.Set gen_c_main, "generate a main.c file allowing simulation of the node");
   ]
 
 let file, main_node =
@@ -47,11 +49,12 @@ let file, main_node =
     | None ->
         Arg.usage spec usage;
         exit 1),
-    match !main with
+    main )
+(* match !main with
     | Some n -> n
     | None ->
         Arg.usage spec usage;
-        exit 1 )
+        exit 1 ) *)
 
 let report_loc (b, e) =
   let l = b.pos_lnum in
@@ -63,12 +66,18 @@ let write_file path content =
   let oc = open_out path in
   Fun.protect ~finally:(fun () -> close_out oc) (fun () -> output_string oc content)
 
-let write_outputs basename output_dir h_content c_content =
+let write_outputs basename output_dir h_content c_content main_content =
   let h_path = Filename.concat output_dir (basename ^ ".h") in
   let c_path = Filename.concat output_dir (basename ^ ".c") in
 
   write_file h_path h_content;
-  write_file c_path c_content
+  write_file c_path c_content;
+
+  if Option.is_some main_content then begin
+    let name = if basename = "main" then "main_" else "main" in
+    let main_path = Filename.concat output_dir (name ^ ".c") in
+    write_file main_path (Option.get main_content)
+  end
 
 let () =
   Format.set_margin 100;
@@ -125,8 +134,11 @@ let () =
     if !objc_only then exit 0;
 
     let basename = Filename.remove_extension (Filename.basename file) in
-    let h_file, c_file = C_printer.print_c_files objc_nt basename in
-    write_outputs basename !c_folder h_file c_file;
+    let h_file, c_file, main_file =
+      C_printer.print_c_files objc_nt basename !gen_c_main !main_node
+    in
+    write_outputs basename !c_folder h_file c_file main_file;
+
     (* TODO :o *)
     exit 0
   with

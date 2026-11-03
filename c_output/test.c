@@ -1,3 +1,4 @@
+// file auto-generated from Lustre file test.lus
 #include "test.h"
 
 void counting_reset__109(counting_mem__106* self) {
@@ -221,28 +222,28 @@ count_ret__155 count_step__158(int i__41, count_mem__154* self) {
     
     return count_result__156;
 }
-void condact_reset__162(condact_mem__159* self) {
+void condact__reset__162(condact__mem__159* self) {
     count_reset__157(&self->count_105__105);
     self->temp81_tmp__99 = 0;
 }
 
-condact_ret__160 condact_step__163(bool c__44, int i__45, condact_mem__159* self) {
+condact__ret__160 condact__step__163(bool c__44, int i__45, condact__mem__159* self) {
     int temp82__82;
     int temp81__81;
-    condact_ret__160 condact_result__161;
+    condact__ret__160 condact__result__161;
     count_ret__155 count_result__169;
     
     temp81__81 = self->temp81_tmp__99;
     if (c__44) {
         count_result__169 = count_step__158(i__45, &self->count_105__105);
         temp82__82 = count_result__169.o__42;
-        condact_result__161.o__46 = temp82__82;
+        condact__result__161.o__46 = temp82__82;
     }
     else {
-        condact_result__161.o__46 = temp81__81;
+        condact__result__161.o__46 = temp81__81;
     }
-    self->temp81_tmp__99 = condact_result__161.o__46;
+    self->temp81_tmp__99 = condact__result__161.o__46;
     
-    return condact_result__161;
+    return condact__result__161;
 }
 

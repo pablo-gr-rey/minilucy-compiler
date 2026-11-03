@@ -65,7 +65,7 @@ let
     o = (0 fby o) + i;
 tel
 
-node condact(c:bool; i:int) returns (o:int);
+node condact_(c:bool; i:int) returns (o:int);
 let
     o = merge c (true -> count(i when c)) (false -> (0 fby o) when not c);
 tel

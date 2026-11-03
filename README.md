@@ -1,8 +1,20 @@
 # Compiler from a subset to Lustre (a synchronous stream language) to C, implemented in OCaml.
 
-I mostly followed the structure from [1]. For now, the compilation is pretty naive, introducing many temporary variables and featuring only few optimizations, but more should be implemented.
+## Usage
 
-Part of the parser and typing modules were given in class; all the other code is my own (including additions to parsing and typing).
+I used OCaml 4.14.2 for compatibility reasons (to be able to run Lustre), but more recent compilers should also work.
+To build, simply run `dune build`.
+Then, to generate C files in the folder `c_output` for the example `examples/test1.lus` along with a `main.c` file to simulate the node `mod_count`, run
+```
+dune exec src/main.exe -- -v examples/test.lus mod_count -gen-main -output-folder c_output
+```
+
+Then, `cd c_output`, compile with e.g. `gcc -O2 test.c main.c -o main` and run `./main` to simulate the node.
+Hopefully, the result should be the same (formatting aside) as `lv6 examples/test.lus -exec -n mod_count`.
+
+## Description of the project
+
+I mostly followed the structure from [1]. For now, the compilation is pretty naive, introducing many temporary variables and featuring only few optimizations, but more should be implemented.
 
 Compilation passes:
 - Parsing (`parse_ast.ml`, `lexer.mll`, `parser.mly` and some util modules)
@@ -20,6 +32,14 @@ I plan to implement several features and optimizations:
 - introduce heuristics for inlining (or at least support an `inline` directive)
 - implement clock calculus to fully support Lustre v6 clock system
 
+## Notes
+
+I have yet to carefully review the code and thoroughly test it. Thus, it is possible (and in fact very likely) that it contains some bugs.
+
+Except from a part of the typing and parsing modules (which were given in class), all the code is my own. No LLM was used for this project.
+
 -- Pablo Rey
+
+## Bibliography
 
 [1] Biernacki, D., Colaço, J. L., Hamon, G., & Pouzet, M. (2008, June). Clock-directed modular code generation for synchronous data-flow languages. In Proceedings of the 2008 ACM SIGPLAN-SIGBED conference on Languages, compilers, and tools for embedded systems (pp. 121-130).

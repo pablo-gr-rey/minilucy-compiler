@@ -4,3 +4,4 @@ _build/*
 notes.md
 test.ml
 .vscode/*
+c_output/main
