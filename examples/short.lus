@@ -1,0 +1,25 @@
+node count() returns (a: int);
+let
+   a = 0 -> 1 + pre a;
+tel;
+
+node count_tick(tick: bool) returns (a: int);
+let
+   a = 0 -> 1 + pre a;
+tel;
+
+node test_if_merge(a: bool) returns (s1, s2, s3: int);
+let
+    s1 = if a then count() else count();
+    s2 = merge a (true -> count() when a) (false -> count() when not a);
+    s3 = merge a (true -> count_tick(true when a)) (false -> count_tick(true when not a));
+tel;
+
+node test2(a: bool) returns (s1, s2: int);
+var tmp1: int when a; tmp2: int when not a;
+let
+    tmp1 = count() when a;
+    tmp2 = count() when not a;
+    s1 = merge a (true -> tmp1) (false -> tmp2);
+    s2 = merge a (true -> count() when a) (false -> count() when not a);
+tel;

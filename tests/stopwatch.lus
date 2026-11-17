@@ -1,0 +1,47 @@
+/* The stopwatch examples from
+   Caspi, Pilaud, Halbwachs, and Plaice,
+   “LUSTRE: A declarative language for programming synchronous systems”,
+   POPL 1987 */
+
+node current(d : int; ck : bool; x : int when ck)
+returns (y : int);
+let
+  y = merge ck x ((d fby y) when not ck);
+tel
+
+node count (init, incr : int; vreset : bool)
+returns (n : int);
+let
+  n = init -> (if vreset then init else ((0 fby n) + incr));
+tel
+
+node two_states (init, set, vreset : bool)
+returns (st : bool);
+var pst : bool;
+let
+  st = init -> (if set and not pst then true
+                else if vreset and pst then false
+                else pst);
+  pst = false fby st;
+tel
+
+node simple_stopwatch (start_stop, vreset, hs : bool);
+returns (time : int);
+var ck, running : bool;
+let
+  time = current(0, ck, count((0, 1, vreset) when ck));
+  ck = true -> (hs and running) or vreset;
+  running = two_states(false, start_stop, start_stop);
+tel
+
+node stopwatch (start_stop, hs, lap : bool);
+returns (disp_time : int);
+var not_in_lap, running, vreset : bool; int_time : int;
+let
+  disp_time = current(0, not_in_lap, int_time when not_in_lap);
+  not_in_lap = two_states(true, lap, lap and running);
+  int_time = simple_stopwatch (start_stop, vreset, hs);
+  running = two_states(false, start_stop, start_stop);
+  vreset = lap and (true fby not_in_lap) and (false fby (not running));
+tel
+

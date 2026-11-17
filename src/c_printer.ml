@@ -244,10 +244,14 @@ let build_main_file filename defs_list main_node =
   in
   let input, ret, _, _ = node.node_origin.ocd_step in
   let has_mem = Option.is_some node.node_mem in
-  let print_ctyfmt fmt (_, ty) =
+  let print_ctyfmt_in fmt (_, ty) =
+    fprintf fmt "%s" (match ty with Tbool -> "%c" | Tint -> "%d" | Treal -> "%f")
+  in
+  let print_ctyfmts_in = print_list print_ctyfmt_in ", " in
+  let print_ctyfmt_out fmt (_, ty) =
     fprintf fmt "%s" (match ty with Tbool | Tint -> "%d" | Treal -> "%f")
   in
-  let print_ctyfmts = print_list print_ctyfmt ", " in
+  let print_ctyfmts_out = print_list print_ctyfmt_out ", " in
   let print_node_mem fmt () =
     match (node.node_mem, node.node_reset) with
     | Some str, Some reset_name ->
@@ -256,7 +260,14 @@ let build_main_file filename defs_list main_node =
     | _ -> ()
   in
   let print_ret_input fmt () =
-    let dec_input fmt (id, ty) = fprintf fmt "%s input_%a;@;" (get_ctype ty) Ident.print_full id in
+    let dec_input fmt (id, ty) =
+      (* for bool, we need to be able to read 1/T/t or 0/F/f, so we need to read a temp char and then convert to bool *)
+      match ty with
+      | Tbool ->
+          fprintf fmt "%s input_%a;@;char inputtmp_%a;@;" (get_ctype ty) Ident.print_full id
+            Ident.print_full id
+      | _ -> fprintf fmt "%s input_%a;@;" (get_ctype ty) Ident.print_full id
+    in
     fprintf fmt "%a ret;@;%a" Ident.print_full node.node_ret.struct_name (print_list dec_input ",")
       input
   in
@@ -266,15 +277,34 @@ let build_main_file filename defs_list main_node =
       (print_list dec_var ", ") ret
   in
   let scan_input fmt () =
-    let dec_input fmt (id, _) = fprintf fmt "&input_%a" Ident.print_full id in
-    if input <> [] then
+    let bool_inputs = List.filter (fun (_, ty) -> ty = Tbool) input in
+    let dec_input fmt (id, ty) =
+      fprintf fmt "&input%s_%a" (if ty = Tbool then "tmp" else "") Ident.print_full id
+    in
+    let print_fail fmt () =
+      fprintf fmt "{@;@[<v 4>    printf(\"Failed to read input; exiting\\n\");@;return 1;@]@;}"
+    in
+    let handle_bool fmt (id, _) =
+      let print_tmp fmt () = fprintf fmt "inputtmp_%a" Ident.print_full id in
+      let print_res fmt () = fprintf fmt "input_%a" Ident.print_full id in
       fprintf fmt
-        "if (scanf(\"%a\", %a) != %d) {@;\
-         @[<v 4>    printf(\"Failed to read input; exiting\\n\");@;\
-         return 1;@]@;\
-         };@;\
-         @;"
-        print_ctyfmts input (print_list dec_input ", ") input (List.length input)
+        "if (%a == '1' || %a == 'T' || %a == 't') %a = true;@;\
+         else {@;\
+         @[<v 4>    %a = false;@;\
+         if (%a != '0' && %a != 'F' && %a != 'f') bool_OK = false;@]@;\
+         }@;\
+         if (!bool_OK) %a@;"
+        print_tmp () print_tmp () print_tmp () print_res () print_res () print_tmp () print_tmp ()
+        print_tmp () print_fail ()
+    in
+    let handle_bools fmt () =
+      if bool_inputs <> [] then begin
+        fprintf fmt "bool bool_OK = true;@;%a" (print_list handle_bool "") bool_inputs
+      end
+    in
+    if input <> [] then
+      fprintf fmt "if (scanf(\" %a\", %a) != %d) %a@;%a@;" print_ctyfmts_in input
+        (print_list dec_input ", ") input (List.length input) print_fail () handle_bools ()
   in
   let apply_step fmt () =
     let dec_input fmt (id, _) = fprintf fmt "input_%a" Ident.print_full id in
@@ -286,8 +316,8 @@ let build_main_file filename defs_list main_node =
   let print_output fmt () =
     let dec_input fmt (id, _) = fprintf fmt "input_%a" Ident.print_full id in
     let dec_output fmt (id, _) = fprintf fmt "ret.%a" Ident.print_full id in
-    fprintf fmt "printf(\"%a #outs %a\\n\\n\", %a%s%a);" print_ctyfmts input print_ctyfmts ret
-      (print_list dec_input ", ") input
+    fprintf fmt "printf(\"%a #outs %a\\n\\n\", %a%s%a);" print_ctyfmts_out input print_ctyfmts_out
+      ret (print_list dec_input ", ") input
       (if input <> [] then ", " else "")
       (print_list dec_output ", ") ret
   in

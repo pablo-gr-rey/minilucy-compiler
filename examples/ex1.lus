@@ -16,6 +16,11 @@ let
    (c, d) = if a < b then (a, b) else (b, a);
 tel;
 
+node prop(a: int) returns (b: int);
+let
+    b = (1 + 2 * 3 + 4) * a;
+tel;
+
 node example(x: int; c: bool) returns (y: int);
 let
     y = x;
@@ -96,6 +101,12 @@ node count_2(a: bool) returns (s1, s2: int);
 let
    s1 = count(a);
    s2 = count(not a);
+tel;
+
+node test_if_merge(a: bool) returns (s1, s2: int);
+let
+    s1 = if a then count(true) else count(true);
+    s2 = merge a (true -> count(true) when a) (false -> count(true) when not a);
 tel;
 
 node regulator (cruise_speed, speed : real; rst : bool)

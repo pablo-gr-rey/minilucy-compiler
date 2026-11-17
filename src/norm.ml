@@ -131,9 +131,20 @@ let rec texpr_to_nexpr (vars : (typed_var * var_kind) VMap.t ref) (locals_ref : 
   let op_if (el : t_expr list) (ty : ty) (cks : t_clock list) =
     (* since we have to build an expr, we have to put the if in a new equation and introduce temp variables :( *)
     match el with
-    | [ cond; e1; e2 ] -> begin
-        let handle_e ne1 ne2 typ ck =
-          let n_id, _, _ = make_temp_var typ ck in
+    | [ cond; eT; eF ] -> begin
+        let handle_e nceT nceF typ ck =
+          (* if cond then neT else neF should become
+          c_var = cond;
+          tmpT = nceT;
+          tmpF = nceF;
+          res = merge c_var (true -> tmpT when cond) (false -> tmpF when not cond)
+          res
+          because unlike a merge, both sides are always computed
+          (so this is not equivalent to merge c_var (true -> nceT when cond) (false -> nceF when cond))
+          *)
+          let res, _, _ = make_temp_var typ ck in
+          let tmpT, _, _ = make_temp_var typ ck in
+          let tmpF, _, _ = make_temp_var typ ck in
           let c_var, _, _ = make_temp_var Tbool ck in
           let n_cond =
             (* we have to recompute n_cond every time because the clock might be different *)
@@ -141,23 +152,35 @@ let rec texpr_to_nexpr (vars : (typed_var * var_kind) VMap.t ref) (locals_ref : 
             | [ c ] -> c
             | _ -> error_ "expected single value for if operand"
           in
-          let ne1w = make_nexpr (NE_when (ne1, true, c_var)) typ (TC_when (ck, c_var)) in
-          let ne2w = make_nexpr (NE_when (ne2, false, c_var)) typ (TC_whennot (ck, c_var)) in
+          let neTw =
+            make_nexpr
+              (NE_when (make_nexpr (NE_ident tmpT) typ ck, true, c_var))
+              typ
+              (TC_when (ck, c_var))
+          in
+          let neFw =
+            make_nexpr
+              (NE_when (make_nexpr (NE_ident tmpF) typ ck, false, c_var))
+              typ
+              (TC_whennot (ck, c_var))
+          in
           equs_ref :=
             NEQ_ce (c_var, n_cond)
+            :: NEQ_ce (tmpT, nceT)
+            :: NEQ_ce (tmpF, nceF)
             :: NEQ_ce
-                 ( n_id,
+                 ( res,
                    make_ncexpr
                      (NCE_merge
                         ( c_var,
-                          make_ncexpr (NCE_expr ne1w) typ (TC_when (ck, c_var)),
-                          make_ncexpr (NCE_expr ne2w) typ (TC_whennot (ck, c_var)) ))
+                          make_ncexpr (NCE_expr neTw) typ (TC_when (ck, c_var)),
+                          make_ncexpr (NCE_expr neFw) typ (TC_whennot (ck, c_var)) ))
                      typ ck )
             :: !equs_ref;
           (* equs_ref := NEQ_ce (n_id, make_ncexpr (NCE_ite (n_cond, ne1, ne2)) typ ck) :: !equs_ref; *)
-          make_nexpr (NE_ident n_id) typ ck
+          make_nexpr (NE_ident res) typ ck
         in
-        map4 handle_e (t2ne e1 cks) (t2ne e2 cks) ty cks
+        map4 handle_e (t2nce eT cks) (t2nce eF cks) ty cks
       end
     | _ -> error_ "invalid arity for ITE (expected 3)"
   in
