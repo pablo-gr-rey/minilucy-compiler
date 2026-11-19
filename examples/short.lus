@@ -3,12 +3,22 @@ let
    a = 0 -> 1 + pre a;
 tel;
 
+node idiot() returns (a: int);
+let
+    a = 3;
+tel;
+
 node count_tick(tick: bool) returns (a: int);
 let
    a = 0 -> 1 + pre a;
 tel;
 
-node test_if_merge(a: bool) returns (s1, s2, s3: int);
+node nomem(a, b: int) returns (c: int);
+let
+    c = a + b;
+tel;
+
+node test(a: bool) returns (s1, s2, s3: int);
 let
     s1 = if a then count() else count();
     s2 = merge a (true -> count() when a) (false -> count() when not a);
@@ -22,4 +32,9 @@ let
     tmp2 = count() when not a;
     s1 = merge a (true -> tmp1) (false -> tmp2);
     s2 = merge a (true -> count() when a) (false -> count() when not a);
+tel;
+
+node test_real(a, b: real) returns (c: real);
+let
+   c = a + b * a + b;
 tel;

@@ -1,157 +1,178 @@
 // file auto-generated from Lustre file short.lus
 #include "short.h"
 
-void count_reset__62(count_mem__59* self) {
-    self->temp24_tmp__46 = true;
-    self->temp19_tmp__45 = 0;
+void count_reset__72(count_mem__69* self) {
+    self->temp34_tmp__56 = true;
+    self->temp29_tmp__55 = 0;
 }
 
-count_ret__60 count_step__63(count_mem__59* self) {
-    bool temp24__24;
-    int temp22__22;
-    int temp21__21;
-    int temp19__19;
-    count_ret__60 count_result__61;
-    
-    temp21__21 = 0;
-    temp19__19 = self->temp19_tmp__45;
-    temp22__22 = (1) + (temp19__19);
-    temp24__24 = self->temp24_tmp__46;
-    if (temp24__24) {
-        count_result__61.a__3 = temp21__21;
-    }
-    else {
-        count_result__61.a__3 = temp22__22;
-    }
-    self->temp24_tmp__46 = false;
-    self->temp19_tmp__45 = count_result__61.a__3;
-    
-    return count_result__61;
-}
-void count_tick_reset__67(count_tick_mem__64* self) {
-    self->temp30_tmp__48 = true;
-    self->temp25_tmp__47 = 0;
-}
-
-count_tick_ret__65 count_tick_step__68(bool tick__5, count_tick_mem__64* self) {
-    bool temp30__30;
-    int temp28__28;
-    int temp27__27;
-    int temp25__25;
-    count_tick_ret__65 count_tick_result__66;
-    
-    temp27__27 = 0;
-    temp25__25 = self->temp25_tmp__47;
-    temp28__28 = (1) + (temp25__25);
-    temp30__30 = self->temp30_tmp__48;
-    if (temp30__30) {
-        count_tick_result__66.a__6 = temp27__27;
-    }
-    else {
-        count_tick_result__66.a__6 = temp28__28;
-    }
-    self->temp30_tmp__48 = false;
-    self->temp25_tmp__47 = count_tick_result__66.a__6;
-    
-    return count_tick_result__66;
-}
-void test_if_merge_reset__72(test_if_merge_mem__69* self) {
-    count_tick_reset__67(&self->count_tick_54__54);
-    count_tick_reset__67(&self->count_tick_53__53);
-    count_reset__62(&self->count_52__52);
-    count_reset__62(&self->count_51__51);
-    count_reset__62(&self->count_50__50);
-    count_reset__62(&self->count_49__49);
-}
-
-test_if_merge_ret__70 test_if_merge_step__73(bool a__8, test_if_merge_mem__69* self) {
-    int temp40__40;
-    int temp39__39;
-    int temp38__38;
-    int temp37__37;
+count_ret__70 count_step__73(count_mem__69* self) {
+    bool temp34__34;
     int temp32__32;
     int temp31__31;
-    test_if_merge_ret__70 test_if_merge_result__71;
-    count_ret__60 count_result__84;
-    count_ret__60 count_result__83;
-    count_ret__60 count_result__82;
-    count_ret__60 count_result__81;
-    count_tick_ret__65 count_tick_result__80;
-    count_tick_ret__65 count_tick_result__79;
+    int temp29__29;
+    count_ret__70 count_result__71;
     
-    if (a__8) {
-        count_tick_result__80 = count_tick_step__68(true, &self->count_tick_53__53);
-        temp40__40 = count_tick_result__80.a__6;
-        test_if_merge_result__71.s3__11 = temp40__40;
+    temp31__31 = 0;
+    temp29__29 = self->temp29_tmp__55;
+    temp32__32 = (1) + (temp29__29);
+    temp34__34 = self->temp34_tmp__56;
+    if (temp34__34) {
+        count_result__71.a__3 = temp31__31;
     }
     else {
-        count_tick_result__79 = count_tick_step__68(true, &self->count_tick_54__54);
-        temp39__39 = count_tick_result__79.a__6;
-        test_if_merge_result__71.s3__11 = temp39__39;
+        count_result__71.a__3 = temp32__32;
     }
-    count_result__81 = count_step__63(&self->count_52__52);temp37__37 = count_result__81.a__3;
-    count_result__82 = count_step__63(&self->count_51__51);temp38__38 = count_result__82.a__3;
-    if (a__8) {
-        test_if_merge_result__71.s2__10 = temp38__38;
-    }
-    else {
-        test_if_merge_result__71.s2__10 = temp37__37;
-    }
-    count_result__83 = count_step__63(&self->count_50__50);temp31__31 = count_result__83.a__3;
-    count_result__84 = count_step__63(&self->count_49__49);temp32__32 = count_result__84.a__3;
-    if (a__8) {
-        test_if_merge_result__71.s1__9 = temp32__32;
-    }
-    else {
-        test_if_merge_result__71.s1__9 = temp31__31;
-    }
+    self->temp34_tmp__56 = false;
+    self->temp29_tmp__55 = count_result__71.a__3;
     
-    return test_if_merge_result__71;
+    return count_result__71;
 }
-void test2_reset__77(test2_mem__74* self) {
-    count_reset__62(&self->count_58__58);
-    count_reset__62(&self->count_57__57);
-    count_reset__62(&self->count_56__56);
-    count_reset__62(&self->count_55__55);
+idiot_ret__74 idiot_step__76() {
+    idiot_ret__74 idiot_result__75;
+    
+    idiot_result__75.a__5 = 3;
+    
+    return idiot_result__75;
+}
+void count_tick_reset__80(count_tick_mem__77* self) {
+    self->temp40_tmp__58 = true;
+    self->temp35_tmp__57 = 0;
 }
 
-test2_ret__75 test2_step__78(bool a__13, test2_mem__74* self) {
-    int temp44__44;
-    int temp43__43;
+count_tick_ret__78 count_tick_step__81(bool tick__7, count_tick_mem__77* self) {
+    bool temp40__40;
+    int temp38__38;
+    int temp37__37;
+    int temp35__35;
+    count_tick_ret__78 count_tick_result__79;
+    
+    temp37__37 = 0;
+    temp35__35 = self->temp35_tmp__57;
+    temp38__38 = (1) + (temp35__35);
+    temp40__40 = self->temp40_tmp__58;
+    if (temp40__40) {
+        count_tick_result__79.a__8 = temp37__37;
+    }
+    else {
+        count_tick_result__79.a__8 = temp38__38;
+    }
+    self->temp40_tmp__58 = false;
+    self->temp35_tmp__57 = count_tick_result__79.a__8;
+    
+    return count_tick_result__79;
+}
+nomem_ret__82 nomem_step__84(int a__10, int b__11) {
+    nomem_ret__82 nomem_result__83;
+    
+    nomem_result__83.c__12 = (a__10) + (b__11);
+    
+    return nomem_result__83;
+}
+void test_reset__88(test_mem__85* self) {
+    count_tick_reset__80(&self->count_tick_64__64);
+    count_tick_reset__80(&self->count_tick_63__63);
+    count_reset__72(&self->count_62__62);
+    count_reset__72(&self->count_61__61);
+    count_reset__72(&self->count_60__60);
+    count_reset__72(&self->count_59__59);
+}
+
+test_ret__86 test_step__89(bool a__14, test_mem__85* self) {
+    int temp50__50;
+    int temp49__49;
+    int temp48__48;
+    int temp47__47;
     int temp42__42;
     int temp41__41;
-    int tmp2__17;
-    int tmp1__16;
-    test2_ret__75 test2_result__76;
-    count_ret__60 count_result__88;
-    count_ret__60 count_result__87;
-    count_ret__60 count_result__86;
-    count_ret__60 count_result__85;
+    test_ret__86 test_result__87;
+    count_ret__70 count_result__103;
+    count_ret__70 count_result__102;
+    count_ret__70 count_result__101;
+    count_ret__70 count_result__100;
+    count_tick_ret__78 count_tick_result__99;
+    count_tick_ret__78 count_tick_result__98;
     
-    count_result__85 = count_step__63(&self->count_58__58);temp41__41 = count_result__85.a__3;
-    if (a__13) {
-        tmp1__16 = temp41__41;
+    if (a__14) {
+        count_tick_result__99 = count_tick_step__81(true, &self->count_tick_63__63);
+        temp50__50 = count_tick_result__99.a__8;
+        test_result__87.s3__17 = temp50__50;
+    }
+    else {
+        count_tick_result__98 = count_tick_step__81(true, &self->count_tick_64__64);
+        temp49__49 = count_tick_result__98.a__8;
+        test_result__87.s3__17 = temp49__49;
+    }
+    count_result__100 = count_step__73(&self->count_62__62);temp47__47 = count_result__100.a__3;
+    count_result__101 = count_step__73(&self->count_61__61);temp48__48 = count_result__101.a__3;
+    if (a__14) {
+        test_result__87.s2__16 = temp48__48;
+    }
+    else {
+        test_result__87.s2__16 = temp47__47;
+    }
+    count_result__102 = count_step__73(&self->count_60__60);temp41__41 = count_result__102.a__3;
+    count_result__103 = count_step__73(&self->count_59__59);temp42__42 = count_result__103.a__3;
+    if (a__14) {
+        test_result__87.s1__15 = temp42__42;
+    }
+    else {
+        test_result__87.s1__15 = temp41__41;
+    }
+    
+    return test_result__87;
+}
+void test2_reset__93(test2_mem__90* self) {
+    count_reset__72(&self->count_68__68);
+    count_reset__72(&self->count_67__67);
+    count_reset__72(&self->count_66__66);
+    count_reset__72(&self->count_65__65);
+}
+
+test2_ret__91 test2_step__94(bool a__19, test2_mem__90* self) {
+    int temp54__54;
+    int temp53__53;
+    int temp52__52;
+    int temp51__51;
+    int tmp2__23;
+    int tmp1__22;
+    test2_ret__91 test2_result__92;
+    count_ret__70 count_result__107;
+    count_ret__70 count_result__106;
+    count_ret__70 count_result__105;
+    count_ret__70 count_result__104;
+    
+    count_result__104 = count_step__73(&self->count_68__68);temp51__51 = count_result__104.a__3;
+    if (a__19) {
+        tmp1__22 = temp51__51;
     }
     else {
         
     }
-    count_result__86 = count_step__63(&self->count_57__57);temp42__42 = count_result__86.a__3;
-    if (a__13) {
-        test2_result__76.s1__14 = tmp1__16;
+    count_result__105 = count_step__73(&self->count_67__67);temp52__52 = count_result__105.a__3;
+    if (a__19) {
+        test2_result__92.s1__20 = tmp1__22;
     }
     else {
-        tmp2__17 = temp42__42;
-        test2_result__76.s1__14 = tmp2__17;
+        tmp2__23 = temp52__52;
+        test2_result__92.s1__20 = tmp2__23;
     }
-    count_result__87 = count_step__63(&self->count_56__56);temp43__43 = count_result__87.a__3;
-    count_result__88 = count_step__63(&self->count_55__55);temp44__44 = count_result__88.a__3;
-    if (a__13) {
-        test2_result__76.s2__15 = temp44__44;
+    count_result__106 = count_step__73(&self->count_66__66);temp53__53 = count_result__106.a__3;
+    count_result__107 = count_step__73(&self->count_65__65);temp54__54 = count_result__107.a__3;
+    if (a__19) {
+        test2_result__92.s2__21 = temp54__54;
     }
     else {
-        test2_result__76.s2__15 = temp43__43;
+        test2_result__92.s2__21 = temp53__53;
     }
     
-    return test2_result__76;
+    return test2_result__92;
+}
+test_real_ret__95 test_real_step__97(double a__25, double b__26) {
+    test_real_ret__95 test_real_result__96;
+    
+    test_real_result__96.c__27 = ((a__25) + ((b__26) * (a__25))) + (b__26);
+    
+    return test_real_result__96;
 }
 

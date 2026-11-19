@@ -6,6 +6,7 @@
   c_utils
   ident
   lexer
+  lv6_utils
   main
   norm_ast_printer
   norm_ast
@@ -23,7 +24,8 @@
   typed_ast_utils
   typing)
  (flags
-  (:standard -w +33+39+8 -warn-error -A)))
+  (:standard -w +33+39+8 -warn-error -A))
+ (libraries unix))
 
 (ocamllex lexer)
 

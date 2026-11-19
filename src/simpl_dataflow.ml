@@ -52,6 +52,8 @@ let simpl_dataflow node =
   let final = ref VMap.empty in
 
   (* if we find v1 = v2, replace one by the other *)
+  (* returns true if the replacement was done, otherwise false *)
+  (* we can't replace output2 = output1 for example *)
   let add_repl v1 v2 =
     if not (VMap.mem v1 !v2kind) then error_ "unknown variable %a" Ident.print v1;
     if not (VMap.mem v2 !v2kind) then error_ "unknown variable %a" Ident.print v2;
@@ -71,9 +73,13 @@ let simpl_dataflow node =
     in
     match (kind1, kind2) with
     (* if one is local, then replace this one; otherwise, do nothing *)
-    | V_local, _ -> add v1 v2
-    | _, V_local -> add v2 v1
-    | _ -> ()
+    | V_local, _ ->
+        add v1 v2;
+        true
+    | _, V_local ->
+        add v2 v1;
+        true
+    | _ -> false
   in
 
   let build_final_repl () =
@@ -111,9 +117,8 @@ let simpl_dataflow node =
 
   let handle_eqs eq_list = function
     (* if eq is v1 = v2, then add the replacement, otherwise do nothing *)
-    | NEQ_ce (v1, { ncexpr_desc = NCE_expr { nexpr_desc = NE_ident v2; _ }; _ }) ->
-        add_repl v1 v2;
-        eq_list
+    | NEQ_ce (v1, { ncexpr_desc = NCE_expr { nexpr_desc = NE_ident v2; _ }; _ }) as eq ->
+        if add_repl v1 v2 then eq_list else eq :: eq_list
     | eq -> eq :: eq_list
   in
 

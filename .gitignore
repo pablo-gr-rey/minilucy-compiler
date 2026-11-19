@@ -4,4 +4,7 @@ _build/*
 notes.md
 test.ml
 .vscode/*
+.clangd
 c_output/main
+c_output/lv6/*
+temp/*

@@ -45,4 +45,4 @@ type binop =
   | Binop_or
   | Binop_impl
 
-type unop = Unop_not | Unop_neg
+type unop = Unop_not | Unop_neg | Unop_neg_f

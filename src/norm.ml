@@ -214,7 +214,7 @@ let rec texpr_to_nexpr (vars : (typed_var * var_kind) VMap.t ref) (locals_ref : 
         | Op_div -> op2 Binop_div
         | Op_mod -> op2 Binop_mod
         | Op_add_f -> op2 Binop_add_f
-        | Op_sub_f -> op2 Binop_sub_f
+        | Op_sub_f -> if List.length le = 1 then op1 Unop_neg_f else op2 Binop_sub_f
         | Op_mul_f -> op2 Binop_mul_f
         | Op_div_f -> op2 Binop_div_f
         | Op_not -> op1 Unop_not

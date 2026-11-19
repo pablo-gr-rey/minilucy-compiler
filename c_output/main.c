@@ -1,35 +1,30 @@
 // file auto-generated from Lustre file short.lus
 #include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 #include "short.h"
+#include "lv6/short_test_real.h"
 
 int main(void) {
-    test_if_merge_mem__69 mem;
-    test_if_merge_reset__72(&mem);
-    test_if_merge_ret__70 ret;
-    bool input_a__8;
-    char inputtmp_a__8;
-    printf("#inputs \"a\":bool\n#outputs \"s1\":int, \"s2\":int, \"s3\":int\n\n");
+    short_test_real_ctx_type* ctx = short_test_real_ctx_new_ctx();
+    test_real_ret__95 ret;
+    double output_c__27;
+    double input_a__25;
+    double input_b__26;
     
+    printf("testing node test_real (file short.lus) on 10000 steps...\n");
     
-    for (int step = 0; ; step++) {
-        printf("#step %d\n", step);
-        if (scanf(" %c", &inputtmp_a__8) != 1) {
-            printf("Failed to read input; exiting\n");
-            return 1;
-        }
-        bool bool_OK = true;
-        if (inputtmp_a__8 == '1' || inputtmp_a__8 == 'T' || inputtmp_a__8 == 't') input_a__8 = true;
-        else {
-            input_a__8 = false;
-            if (inputtmp_a__8 != '0' && inputtmp_a__8 != 'F' && inputtmp_a__8 != 'f') bool_OK = false;
-        }
-        if (!bool_OK) {
-            printf("Failed to read input; exiting\n");
+    for (int step = 0; step < 10000; step++) {
+        input_a__25 = (double)rand() / (double)RAND_MAX * 100.0;
+        input_b__26 = (double)rand() / (double)RAND_MAX * 100.0;
+        ret = test_real_step__97(input_a__25, input_b__26);
+        short_test_real_step(input_a__25, input_b__26, &output_c__27, ctx);
+        if (fabs(output_c__27 - ret.c__27) > 1e-5) {
+            printf("ERROR at step %d for node test_real__28, field c__27: got %lf, expected %lf\n", step, ret.c__27, output_c__27);
             return 1;
         }
         
-        ret = test_if_merge_step__73(input_a__8, &mem);
-        
-        printf("%d #outs %d, %d, %d\n\n", input_a__8, ret.s1__9, ret.s2__10, ret.s3__11);
     }
+    printf("Ran for 10000 steps, got the same output!\n");
+    
 }

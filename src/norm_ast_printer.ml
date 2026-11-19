@@ -5,7 +5,7 @@ open Typed_ast
 open Typed_ast_printer
 
 let print_unop fmt u =
-  let s = match u with Unop_not -> "not" | Unop_neg -> "-" in
+  let s = match u with Unop_not -> "not" | Unop_neg | Unop_neg_f -> "-" in
   fprintf fmt "%s" s
 
 let print_binop fmt b =

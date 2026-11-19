@@ -14,6 +14,8 @@ let objc_only = ref false
 let verbose = ref false
 let c_folder = ref ""
 let gen_c_main = ref false
+let compare_lv6 = ref false
+let compile = ref false
 
 let spec =
   [
@@ -28,6 +30,11 @@ let spec =
     ("-print-id", Arg.Set Ident.print_id, "print variables ID");
     ("-output-folder", Arg.Set_string c_folder, "folder where .c and .h files are written");
     ("-gen-main", Arg.Set gen_c_main, "generate a main.c file allowing simulation of the node");
+    ( "-compare-lv6",
+      Arg.Set compare_lv6,
+      "generate a main.c file comparing output of this compiler and output of lv6 on random input"
+    );
+    ("-compile", Arg.Set compile, "compile files with gcc");
   ]
 
 let file, main_node =
@@ -135,9 +142,15 @@ let () =
 
     let basename = Filename.remove_extension (Filename.basename file) in
     let h_file, c_file, main_file =
-      C_printer.print_c_files objc_nt basename !gen_c_main !main_node
+      C_printer.print_c_files objc_nt basename !gen_c_main !compare_lv6 !main_node
     in
     write_outputs basename !c_folder h_file c_file main_file;
+
+    if !compile && !compare_lv6 then begin
+      Lv6_utils.compile_lv6 file (Option.get !main_node) !c_folder;
+      Lv6_utils.compile_c basename !c_folder
+        (Lv6_utils.get_lv6_node_info basename (Option.get !main_node))
+    end;
 
     (* TODO :o *)
     exit 0
@@ -169,6 +182,10 @@ let () =
   | Objc.Error (l, e) ->
       report_loc l;
       eprintf "%a\n@." Objc.report e;
+      exit 1
+  | C_utils.Error (l, e) ->
+      report_loc l;
+      eprintf "%a\n@." C_utils.report e;
       exit 1
   | e ->
       eprintf "Anomaly: %s\n@." (Printexc.to_string e);

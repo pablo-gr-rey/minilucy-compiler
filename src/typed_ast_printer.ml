@@ -24,6 +24,51 @@ let print_list_eol_last f sep fmt = function
       print_list_eol f sep fmt l;
       fprintf fmt "@;"
 
+(* prints several list with their respective functions *)
+(* I'm not sure if it's possible to write a general function, as the elements and the printing functions may have different types (so we can't just put them in a list) *)
+let rec print_2_lists_aux is_first f1 f2 sep fmt (l1, l2) =
+  match (l1, l2) with
+  | [], [] -> ()
+  | x :: l, _ ->
+      fprintf fmt "%s%a%a"
+        (if is_first then "" else sep)
+        f1 x
+        (print_2_lists_aux false f1 f2 sep)
+        (l, l2)
+  | [], x :: l ->
+      fprintf fmt "%s%a%a"
+        (if is_first then "" else sep)
+        f2 x
+        (print_2_lists_aux false f1 f2 sep)
+        ([], l)
+
+let print_2_lists f1 f2 sep fmt (l1, l2) = print_2_lists_aux true f1 f2 sep fmt (l1, l2)
+
+let rec print_3_lists_aux is_first f1 f2 f3 sep fmt (l1, l2, l3) =
+  match (l1, l2, l3) with
+  | [], [], [] -> ()
+  | x :: l1', _, _ ->
+      fprintf fmt "%s%a%a"
+        (if is_first then "" else sep)
+        f1 x
+        (print_3_lists_aux false f1 f2 f3 sep)
+        (l1', l2, l3)
+  | [], x :: l2', _ ->
+      fprintf fmt "%s%a%a"
+        (if is_first then "" else sep)
+        f2 x
+        (print_3_lists_aux false f1 f2 f3 sep)
+        ([], l2', l3)
+  | [], [], x :: l3' ->
+      fprintf fmt "%s%a%a"
+        (if is_first then "" else sep)
+        f3 x
+        (print_3_lists_aux false f1 f2 f3 sep)
+        ([], [], l3')
+
+let print_3_lists f1 f2 f3 sep fmt (l1, l2, l3) =
+  print_3_lists_aux true f1 f2 f3 sep fmt (l1, l2, l3)
+
 let print_base_type fmt bty =
   match bty with
   | Tbool -> fprintf fmt "bool"
