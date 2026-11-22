@@ -1,3 +1,5 @@
+(* this modules normalizes the given nodes (essentially, converts a typed ast into a norm ast) *)
+
 open Asttypes
 open Typed_ast
 open Norm_ast

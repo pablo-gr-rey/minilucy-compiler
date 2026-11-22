@@ -61,6 +61,8 @@ rule token = parse
       { newline lexbuf; token lexbuf }
   | "/*"
       { comment lexbuf; token lexbuf }
+	| "(*"
+			{ comment lexbuf; token lexbuf }
   | ident
       { id_or_keyword (lexeme lexbuf) }
   | digit+
@@ -108,6 +110,7 @@ rule token = parse
 
 and comment = parse
   | "*/" { () }
+	| "*)" { () }
   | '\n' { newline lexbuf; comment lexbuf }
   | _    { comment lexbuf }
   | eof  { raise (Lexical_error "unterminated comment") }

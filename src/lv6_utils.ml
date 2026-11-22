@@ -35,6 +35,15 @@ let compile_c basename output_dir lv6_info =
     ]
 (* TODO: add gcc options *)
 
+let compile_c_no_lv6 basename output_dir =
+  run_command "gcc"
+    [
+      Filename.concat output_dir basename ^ ".c";
+      Filename.concat output_dir "main.c";
+      "-o";
+      Filename.concat output_dir "main";
+    ]
+
 let get_lv6_node_info basename node =
   let name = basename ^ "_" ^ node in
   {

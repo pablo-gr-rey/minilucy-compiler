@@ -6,6 +6,7 @@ open Format
 open C_utils
 
 let get_ctype = function Tint -> "int" | Tbool -> "bool" | Treal -> "double"
+let get_lv6_ctype = function Tint -> "_integer" | Tbool -> "_boolean" | Treal -> "_real"
 
 (* we replace nil by an arbitrary value *)
 let print_c_const fmt = function
@@ -286,7 +287,7 @@ let build_main_file basename defs_list main_node cmp_lv6 =
       | _ -> fprintf fmt "%s input_%a;@;" (get_ctype ty) Ident.print_full id
     in
     let print_lv6_ret fmt (id, ty) =
-      fprintf fmt "%s output_%a;@;" (get_ctype ty) Ident.print_full id
+      fprintf fmt "%s output_%a;@;" (get_lv6_ctype ty) Ident.print_full id
     in
     let print_lv6_rets fmt () = if cmp_lv6 then print_list print_lv6_ret "" fmt ret in
     fprintf fmt "%a ret;@;%a%a@;" Ident.print_full node.node_ret.struct_name print_lv6_rets ()

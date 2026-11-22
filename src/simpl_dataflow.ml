@@ -32,7 +32,7 @@ let simpl_dataflow node =
   (* goal: if we find an equation a = b, then we remove one and replace all uses of it by the other one *)
   (* TODO: if a = eq and b = eq, replace a by b? *)
 
-  (* we build a map of variables to kind and typed_var to be able to choose between variables *)
+  (* we build a map of variables to kind and typed_var to be able to choose between variables (we can know from the ident if a node is input, output or local) *)
   (* note that this replaces the node fields, which are later re-built from this one *)
   let error_ fmt = error node.nn_loc fmt in
   let v2kind = ref VMap.empty in
@@ -48,13 +48,22 @@ let simpl_dataflow node =
 
   (* var_rep contains tuple (old_var, new_var) which instructs to replace old_var by new_var *)
   let var_rep = ref VMap.empty in
-  (* final maps variable v to either Some f if it has been computed that the root of v is f, or None is the computation is ongoing to be able to detect cycles (at the end, it should not contain any None) *)
-  let final = ref VMap.empty in
+
+  (* this assumes the replacements form a tree, otherwise it might cycle *)
+  (* since when we add a new replacement at least one of the variables is unknown (as it is written to), this ensures that we trivially cannot add a cycle as all added edges refer to a new node *)
+  let rec find_root v =
+    match VMap.find_opt v !var_rep with None -> v | Some x when x = v -> v | Some x -> find_root x
+  in
 
   (* if we find v1 = v2, replace one by the other *)
   (* returns true if the replacement was done, otherwise false *)
   (* we can't replace output2 = output1 for example *)
+  (* note that this only work if the equations have been scheduled correctly! this ensures that when we see e.g. tmp2 = tmp1, tmp2 has not been seen before *)
+  (* otherwise the algorithm could break on e.g. output2 = tmp2; output1 = tmp1; tmp1 = tmp2 because we'd replace tmp2 by output2, tmp1 by output1, and get stuck *)
   let add_repl v1 v2 =
+    (* note that we need to consider the root of v2 *)
+    (* for tmp1 = ...; tmp2 = tmp1; output = tmp2 we should replace tmp1 by output, not tmp2 *)
+    let v2 = find_root v2 in
     if not (VMap.mem v1 !v2kind) then error_ "unknown variable %a" Ident.print v1;
     if not (VMap.mem v2 !v2kind) then error_ "unknown variable %a" Ident.print v2;
     let kind1, (_, ty1, ck1) = VMap.find v1 !v2kind
@@ -82,9 +91,13 @@ let simpl_dataflow node =
     | _ -> false
   in
 
+  (* final maps variable v to either Some f if it has been computed that the root of v is f, or None if the computation is ongoing to be able to detect cycles (at the end, it should not contain any None) *)
+  let final = ref VMap.empty in
+
   let build_final_repl () =
     (* var_rep should define a forest, we want to replace every variable by the corresponding root *)
     (* if there is a cycle, it means there is a causality problem *)
+    (* final maps each seen variable to None if it is being computed, and Some root if its root is root; this is essentially a DFS in O(n), and if we get back to a node marked with None it means that we have found a cycle *)
     final := VMap.empty;
     let rec compute v =
       match VMap.find_opt v !final with
@@ -116,7 +129,7 @@ let simpl_dataflow node =
   let repl_patt p = { p with tpatt_desc = List.map find_repl p.tpatt_desc } in
 
   let handle_eqs eq_list = function
-    (* if eq is v1 = v2, then add the replacement, otherwise do nothing *)
+    (* if eq is v1 = v2 and we're allowed to replace (e.g. at least one of them is local), then store the replacement and remove the equation, otherwise do nothing *)
     | NEQ_ce (v1, { ncexpr_desc = NCE_expr { nexpr_desc = NE_ident v2; _ }; _ }) as eq ->
         if add_repl v1 v2 then eq_list else eq :: eq_list
     | eq -> eq :: eq_list

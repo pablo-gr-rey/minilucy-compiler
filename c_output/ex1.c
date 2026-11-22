@@ -1,307 +1,322 @@
 // file auto-generated from Lustre file ex1.lus
 #include "ex1.h"
 
-test2_ret__134 test2_step__136(int a__3, int b__4) {
-    bool temp66__66;
-    bool temp62__62;
-    test2_ret__134 test2_result__135;
-    
-    temp66__66 = (a__3) < (b__4);
-    if (temp66__66) {
-        test2_result__135.c__5 = a__3;
-    }
-    else {
-        test2_result__135.c__5 = b__4;
-    }
-    temp62__62 = (a__3) < (b__4);
-    if (temp62__62) {
-        test2_result__135.d__6 = b__4;
-    }
-    else {
-        test2_result__135.d__6 = a__3;
-    }
-    
-    return test2_result__135;
-}
-prop_ret__137 prop_step__139(int a__8) {
-    prop_ret__137 prop_result__138;
-    
-    prop_result__138.b__9 = (((1) + ((2) * (3))) + (4)) * (a__8);
-    
-    return prop_result__138;
-}
-example_ret__140 example_step__142(int x__11, bool c__12) {
-    example_ret__140 example_result__141;
-    
-    example_result__141.y__13 = x__11;
-    
-    return example_result__141;
-}
-void test0_reset__146(test0_mem__143* self) {
-    
-    self->temp70_tmp__115 = 0;
-    self->temp69_tmp__114 = 0;
+void test_fby_reset__144(test_fby_mem__141* self) {
+    self->b_tmp__120 = 1;
+    self->a_tmp__119 = 0;
 }
 
-test0_ret__144 test0_step__147(int a__15, int b__16, test0_mem__143* self) {
-    int temp70__70;
-    int temp69__69;
-    test0_ret__144 test0_result__145;
-    test2_ret__134 test2_result__186;
+test_fby_ret__142 test_fby_step__145(test_fby_mem__141* self) {
+    test_fby_ret__142 test_fby_result__143;
     
-    temp69__69 = self->temp69_tmp__114;
-    temp70__70 = self->temp70_tmp__115;
-    test2_result__186 = test2_step__136(temp69__69, temp70__70);test0_result__145.c__17 = test2_result__186.c__5;
-    test0_result__145.d__18 = test2_result__186.d__6;
-    self->temp70_tmp__115 = b__16;
-    self->temp69_tmp__114 = a__15;
+    test_fby_result__143.b__4 = self->b_tmp__120;
+    test_fby_result__143.a__3 = self->a_tmp__119;
+    self->b_tmp__120 = test_fby_result__143.a__3;
+    self->a_tmp__119 = test_fby_result__143.b__4;
     
-    return test0_result__145;
+    return test_fby_result__143;
 }
-void testA_reset__151(testA_mem__148* self) {
-    self->temp74_tmp__119 = 0;
-    self->temp75_tmp__118 = true;
-    self->temp71_tmp__117 = 0;
-    self->temp72_tmp__116 = true;
+test2_ret__146 test2_step__148(int a__6, int b__7) {
+    bool temp71__71;
+    bool temp67__67;
+    test2_ret__146 test2_result__147;
+    
+    temp67__67 = (a__6) < (b__7);
+    if (temp67__67) {
+        test2_result__147.d__9 = b__7;
+    }
+    else {
+        test2_result__147.d__9 = a__6;
+    }
+    temp71__71 = (a__6) < (b__7);
+    if (temp71__71) {
+        test2_result__147.c__8 = a__6;
+    }
+    else {
+        test2_result__147.c__8 = b__7;
+    }
+    
+    return test2_result__147;
+}
+prop_ret__149 prop_step__151(int a__11) {
+    prop_ret__149 prop_result__150;
+    
+    prop_result__150.b__12 = (((1) + ((2) * (3))) + (4)) * (a__11);
+    
+    return prop_result__150;
+}
+example_ret__152 example_step__154(int x__14, bool c__15) {
+    example_ret__152 example_result__153;
+    
+    example_result__153.y__16 = x__14;
+    
+    return example_result__153;
+}
+void test0_reset__158(test0_mem__155* self) {
+    self->temp75_tmp__122 = 0;
+    self->temp74_tmp__121 = 0;
+    
 }
 
-testA_ret__149 testA_step__152(int a__20, int b__21, testA_mem__148* self) {
-    bool temp75__75;
+test0_ret__156 test0_step__159(int a__18, int b__19, test0_mem__155* self) {
+    int temp75__75;
     int temp74__74;
-    bool temp72__72;
-    int temp71__71;
-    testA_ret__149 testA_result__150;
+    test0_ret__156 test0_result__157;
+    test2_ret__146 test2_result__198;
     
-    temp75__75 = self->temp75_tmp__118;
-    temp74__74 = self->temp74_tmp__119;
-    if (temp75__75) {
-        testA_result__150.c__22 = a__20;
-    }
-    else {
-        testA_result__150.c__22 = temp74__74;
-    }
-    self->temp74_tmp__119 = a__20;
-    self->temp75_tmp__118 = false;
-    temp72__72 = self->temp72_tmp__116;
-    temp71__71 = self->temp71_tmp__117;
-    if (temp72__72) {
-        testA_result__150.d__23 = b__21;
-    }
-    else {
-        testA_result__150.d__23 = temp71__71;
-    }
-    self->temp71_tmp__117 = b__21;
-    self->temp72_tmp__116 = false;
+    temp75__75 = self->temp75_tmp__122;
+    self->temp75_tmp__122 = b__19;
+    temp74__74 = self->temp74_tmp__121;
+    self->temp74_tmp__121 = a__18;
+    test2_result__198 = test2_step__148(temp74__74, temp75__75);test0_result__157.c__20 = test2_result__198.c__8;
+    test0_result__157.d__21 = test2_result__198.d__9;
     
-    return testA_result__150;
+    return test0_result__157;
 }
-void alt_reset__156(alt_mem__153* self) {
-    self->a_tmp__121 = false;
-    self->temp77_tmp__120 = false;
+void testA_reset__163(testA_mem__160* self) {
+    self->temp76_tmp__126 = 0;
+    self->temp77_tmp__125 = true;
+    self->temp79_tmp__124 = 0;
+    self->temp80_tmp__123 = true;
 }
 
-alt_ret__154 alt_step__157(alt_mem__153* self) {
+testA_ret__161 testA_step__164(int a__23, int b__24, testA_mem__160* self) {
+    bool temp80__80;
+    int temp79__79;
     bool temp77__77;
-    alt_ret__154 alt_result__155;
+    int temp76__76;
+    testA_ret__161 testA_result__162;
     
-    alt_result__155.a__25 = self->a_tmp__121;
-    temp77__77 = self->temp77_tmp__120;
-    self->a_tmp__121 = !(temp77__77);
-    self->temp77_tmp__120 = alt_result__155.a__25;
+    temp76__76 = self->temp76_tmp__126;
+    self->temp76_tmp__126 = b__24;
+    temp77__77 = self->temp77_tmp__125;
+    self->temp77_tmp__125 = false;
+    if (temp77__77) {
+        testA_result__162.d__26 = b__24;
+    }
+    else {
+        testA_result__162.d__26 = temp76__76;
+    }
+    temp79__79 = self->temp79_tmp__124;
+    self->temp79_tmp__124 = a__23;
+    temp80__80 = self->temp80_tmp__123;
+    self->temp80_tmp__123 = false;
+    if (temp80__80) {
+        testA_result__162.c__25 = a__23;
+    }
+    else {
+        testA_result__162.c__25 = temp79__79;
+    }
     
-    return alt_result__155;
+    return testA_result__162;
 }
-bad_ret__158 bad_step__160() {
-    bool f__29;
-    bool e__28;
-    bad_ret__158 bad_result__159;
+void alt_reset__168(alt_mem__165* self) {
+    self->a_tmp__128 = false;
+    self->temp82_tmp__127 = false;
+}
+
+alt_ret__166 alt_step__169(alt_mem__165* self) {
+    bool temp82__82;
+    alt_ret__166 alt_result__167;
     
-    bad_result__159.a__27 = true;
-    e__28 = true;
-    if (e__28) {
-        f__29 = false;
+    alt_result__167.a__28 = self->a_tmp__128;
+    temp82__82 = self->temp82_tmp__127;
+    self->a_tmp__128 = !(temp82__82);
+    self->temp82_tmp__127 = alt_result__167.a__28;
+    
+    return alt_result__167;
+}
+bad_ret__170 bad_step__172() {
+    bool f__32;
+    bool e__31;
+    bad_ret__170 bad_result__171;
+    
+    bad_result__171.a__30 = true;
+    e__31 = true;
+    if (e__31) {
+        f__32 = false;
     }
     else {
         
     }
     
-    return bad_result__159;
+    return bad_result__171;
 }
-void testB_reset__164(testB_mem__161* self) {
-    alt_reset__156(&self->alt_127__127);
-    alt_reset__156(&self->alt_126__126);
-}
-
-testB_ret__162 testB_step__165(bool a__31, bool b__32, testB_mem__161* self) {
-    bool temp88__88;
-    int temp86__86;
-    int temp85__85;
-    bool temp83__83;
-    bool temp81__81;
-    bool temp80__80;
-    int f__39;
-    bool g__38;
-    bool e__37;
-    testB_ret__162 testB_result__163;
-    alt_ret__154 alt_result__188;
-    alt_ret__154 alt_result__187;
-    
-    if (a__31) {
-        testB_result__163.x__35 = 2;
-        g__38 = false;
-        if (g__38) {
-            e__37 = true;
-        }
-        else {
-            e__37 = false;
-        }
-    }
-    else {
-        f__39 = 4;
-        testB_result__163.x__35 = f__39;
-    }
-    temp85__85 = 4;
-    temp86__86 = 1;
-    alt_result__187 = alt_step__157(&self->alt_127__127);temp88__88 = alt_result__187.a__25;
-    if (temp88__88) {
-        testB_result__163.y__36 = temp85__85;
-    }
-    else {
-        testB_result__163.y__36 = temp86__86;
-    }
-    temp80__80 = false;
-    temp81__81 = true;
-    alt_result__188 = alt_step__157(&self->alt_126__126);temp83__83 = alt_result__188.a__25;
-    if (temp83__83) {
-        testB_result__163.d__34 = temp80__80;
-    }
-    else {
-        testB_result__163.d__34 = temp81__81;
-    }
-    testB_result__163.c__33 = (a__31) && (b__32);
-    
-    return testB_result__163;
-}
-void count_reset__169(count_mem__166* self) {
-    self->temp98_tmp__123 = true;
-    self->temp93_tmp__122 = 0;
+void testB_reset__176(testB_mem__173* self) {
+    alt_reset__168(&self->alt_134__134);
+    alt_reset__168(&self->alt_133__133);
 }
 
-count_ret__167 count_step__170(bool a__41, count_mem__166* self) {
-    bool temp98__98;
-    int temp95__95;
-    int temp94__94;
-    int temp93__93;
+testB_ret__174 testB_step__177(bool a__34, bool b__35, testB_mem__173* self) {
+    bool temp93__93;
     int temp91__91;
     int temp90__90;
-    int temp89__89;
-    count_ret__167 count_result__168;
+    bool temp88__88;
+    bool temp86__86;
+    bool temp85__85;
+    int f__42;
+    bool g__41;
+    bool e__40;
+    testB_ret__174 testB_result__175;
+    alt_ret__166 alt_result__200;
+    alt_ret__166 alt_result__199;
     
-    temp91__91 = 0;
-    temp90__90 = 1;
-    if (a__41) {
-        temp89__89 = temp90__90;
+    if (a__34) {
+        testB_result__175.x__38 = 2;
+        g__41 = false;
+        if (g__41) {
+            e__40 = true;
+        }
+        else {
+            e__40 = false;
+        }
     }
     else {
-        temp89__89 = temp91__91;
+        f__42 = 4;
+        testB_result__175.x__38 = f__42;
     }
-    temp93__93 = self->temp93_tmp__122;
-    temp98__98 = self->temp98_tmp__123;
-    temp95__95 = 0;
-    if (temp98__98) {
+    alt_result__199 = alt_step__169(&self->alt_134__134);temp93__93 = alt_result__199.a__28;
+    temp90__90 = 4;
+    temp91__91 = 1;
+    if (temp93__93) {
+        testB_result__175.y__39 = temp90__90;
+    }
+    else {
+        testB_result__175.y__39 = temp91__91;
+    }
+    alt_result__200 = alt_step__169(&self->alt_133__133);temp88__88 = alt_result__200.a__28;
+    temp85__85 = false;
+    temp86__86 = true;
+    if (temp88__88) {
+        testB_result__175.d__37 = temp85__85;
+    }
+    else {
+        testB_result__175.d__37 = temp86__86;
+    }
+    testB_result__175.c__36 = (a__34) && (b__35);
+    
+    return testB_result__175;
+}
+void count_reset__181(count_mem__178* self) {
+    self->temp103_tmp__130 = true;
+    self->temp98_tmp__129 = 0;
+}
+
+count_ret__179 count_step__182(bool a__44, count_mem__178* self) {
+    bool temp103__103;
+    int temp100__100;
+    int temp99__99;
+    int temp98__98;
+    int temp96__96;
+    int temp95__95;
+    int temp94__94;
+    count_ret__179 count_result__180;
+    
+    temp103__103 = self->temp103_tmp__130;
+    self->temp103_tmp__130 = false;
+    temp100__100 = 0;
+    temp98__98 = self->temp98_tmp__129;
+    if (temp103__103) {
+        temp99__99 = temp100__100;
+    }
+    else {
+        temp99__99 = temp98__98;
+    }
+    temp95__95 = 1;
+    temp96__96 = 0;
+    if (a__44) {
         temp94__94 = temp95__95;
     }
     else {
-        temp94__94 = temp93__93;
+        temp94__94 = temp96__96;
     }
-    count_result__168.s__42 = (temp94__94) + (temp89__89);
-    self->temp98_tmp__123 = false;
-    self->temp93_tmp__122 = count_result__168.s__42;
+    count_result__180.s__45 = (temp99__99) + (temp94__94);
+    self->temp98_tmp__129 = count_result__180.s__45;
     
-    return count_result__168;
+    return count_result__180;
 }
-void count_2_reset__174(count_2_mem__171* self) {
-    count_reset__169(&self->count_129__129);
-    count_reset__169(&self->count_128__128);
+void count_2_reset__186(count_2_mem__183* self) {
+    count_reset__181(&self->count_136__136);
+    count_reset__181(&self->count_135__135);
 }
 
-count_2_ret__172 count_2_step__175(bool a__44, count_2_mem__171* self) {
-    count_2_ret__172 count_2_result__173;
-    count_ret__167 count_result__190;
-    count_ret__167 count_result__189;
+count_2_ret__184 count_2_step__187(bool a__47, count_2_mem__183* self) {
+    count_2_ret__184 count_2_result__185;
+    count_ret__179 count_result__202;
+    count_ret__179 count_result__201;
     
-    count_result__189 = count_step__170(!(a__44), &self->count_129__129);
-    count_2_result__173.s2__46 = count_result__189.s__42;
-    count_result__190 = count_step__170(a__44, &self->count_128__128);
-    count_2_result__173.s1__45 = count_result__190.s__42;
+    count_result__201 = count_step__182(!(a__47), &self->count_136__136);
+    count_2_result__185.s2__49 = count_result__201.s__45;
+    count_result__202 = count_step__182(a__47, &self->count_135__135);
+    count_2_result__185.s1__48 = count_result__202.s__45;
     
-    return count_2_result__173;
+    return count_2_result__185;
 }
-void test_if_merge_reset__179(test_if_merge_mem__176* self) {
-    count_reset__169(&self->count_133__133);
-    count_reset__169(&self->count_132__132);
-    count_reset__169(&self->count_131__131);
-    count_reset__169(&self->count_130__130);
+void test_if_merge_reset__191(test_if_merge_mem__188* self) {
+    count_reset__181(&self->count_140__140);
+    count_reset__181(&self->count_139__139);
+    count_reset__181(&self->count_138__138);
+    count_reset__181(&self->count_137__137);
 }
 
-test_if_merge_ret__177 test_if_merge_step__180(bool a__48, test_if_merge_mem__176* self) {
-    int temp108__108;
+test_if_merge_ret__189 test_if_merge_step__192(bool a__51, test_if_merge_mem__188* self) {
+    int temp113__113;
+    int temp112__112;
     int temp107__107;
-    int temp102__102;
-    int temp101__101;
-    test_if_merge_ret__177 test_if_merge_result__178;
-    count_ret__167 count_result__194;
-    count_ret__167 count_result__193;
-    count_ret__167 count_result__192;
-    count_ret__167 count_result__191;
+    int temp106__106;
+    test_if_merge_ret__189 test_if_merge_result__190;
+    count_ret__179 count_result__206;
+    count_ret__179 count_result__205;
+    count_ret__179 count_result__204;
+    count_ret__179 count_result__203;
     
-    count_result__191 = count_step__170(true, &self->count_133__133);
-    temp107__107 = count_result__191.s__42;
-    count_result__192 = count_step__170(true, &self->count_132__132);
-    temp108__108 = count_result__192.s__42;
-    if (a__48) {
-        test_if_merge_result__178.s2__50 = temp108__108;
+    count_result__203 = count_step__182(true, &self->count_140__140);
+    temp113__113 = count_result__203.s__45;
+    count_result__204 = count_step__182(true, &self->count_139__139);
+    temp112__112 = count_result__204.s__45;
+    if (a__51) {
+        test_if_merge_result__190.s2__53 = temp113__113;
     }
     else {
-        test_if_merge_result__178.s2__50 = temp107__107;
+        test_if_merge_result__190.s2__53 = temp112__112;
     }
-    count_result__193 = count_step__170(true, &self->count_131__131);
-    temp101__101 = count_result__193.s__42;
-    count_result__194 = count_step__170(true, &self->count_130__130);
-    temp102__102 = count_result__194.s__42;
-    if (a__48) {
-        test_if_merge_result__178.s1__49 = temp102__102;
+    count_result__205 = count_step__182(true, &self->count_138__138);
+    temp107__107 = count_result__205.s__45;
+    count_result__206 = count_step__182(true, &self->count_137__137);
+    temp106__106 = count_result__206.s__45;
+    if (a__51) {
+        test_if_merge_result__190.s1__52 = temp107__107;
     }
     else {
-        test_if_merge_result__178.s1__49 = temp101__101;
+        test_if_merge_result__190.s1__52 = temp106__106;
     }
     
-    return test_if_merge_result__178;
+    return test_if_merge_result__190;
 }
-void regulator_reset__184(regulator_mem__181* self) {
-    self->temp109_tmp__124 = 0.000000;
+void regulator_reset__196(regulator_mem__193* self) {
+    self->temp114_tmp__131 = 0.000000;
 }
 
-regulator_ret__182 regulator_step__185(float cruise_speed__52, float speed__53, bool rst__54, regulator_mem__181* self) {
-    float temp112__112;
-    float temp110__110;
-    float temp109__109;
-    float delta__56;
-    regulator_ret__182 regulator_result__183;
+regulator_ret__194 regulator_step__197(double cruise_speed__55, double speed__56, bool rst__57, regulator_mem__193* self) {
+    double temp117__117;
+    double temp115__115;
+    double temp114__114;
+    double delta__59;
+    regulator_ret__194 regulator_result__195;
     
-    delta__56 = (cruise_speed__52) - (speed__53);
-    temp109__109 = self->temp109_tmp__124;
-    temp112__112 = (delta__56) + (temp109__109);
-    if (rst__54) {
-        temp110__110 = delta__56;
+    delta__59 = (cruise_speed__55) - (speed__56);
+    temp114__114 = self->temp114_tmp__131;
+    temp117__117 = (delta__59) + (temp114__114);
+    if (rst__57) {
+        temp115__115 = delta__59;
     }
     else {
-        temp110__110 = temp112__112;
+        temp115__115 = temp117__117;
     }
-    self->temp109_tmp__124 = temp110__110;
-    regulator_result__183.throttle__55 = ((delta__56) * (10.000000)) +
-                                         ((temp110__110) * (0.200000));
+    self->temp114_tmp__131 = temp115__115;
+    regulator_result__195.throttle__58 = ((delta__59) * (10.000000)) +
+                                         ((temp115__115) * (0.200000));
     
-    return regulator_result__183;
+    return regulator_result__195;
 }
 

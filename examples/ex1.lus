@@ -1,15 +1,8 @@
--- node half_add(a, b : bool) returns (s, co : bool);
--- let
---     s = a <> b;
---     co = a and b;
--- tel;
-
--- node bad(a: int) returns (b, c: int);
--- let
---    b = c;
---    c = b;
--- tel;
-
+node test_fby() returns (a, b: int);
+let
+    a = 0 fby b;
+    b = 1 fby a;
+tel;
 
 node test2(a, b: int) returns (c, d: int);
 let

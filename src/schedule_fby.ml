@@ -1,13 +1,21 @@
+(* this module duplicates fbys and schedules the equations to compute sequential code *)
+(* we replace x = a fby v by x = x' and x' = a fby v to make scheduling possible. otherwise, for example, x = 0 fby y and y = 0 fby x is well-defined but not schedulable *)
+(* at the end of this pass, we have the guarantee that equations x = v fby a are scheduled after all reads of x, and that equations x+ = e+ are scheduled before all reads of x *)
+(* as long as the equations are statically schedulable (which is ensured by the schedule pass) and we duplicate fbys, this is possible *)
+
+(* TODO: add a verification pass to ensure the read property *)
+(* TODO: remove unnecessary duplication *)
+
 open Asttypes
 open Typed_ast
 open Norm_ast
 
-type error = ScheduleError of string
+type error = ScheduleFbyError of string
 
 exception Error of location * error
 
-let error loc fmt = Format.kasprintf (fun s -> raise (Error (loc, ScheduleError s))) fmt
-let report fmt = function ScheduleError s -> Format.fprintf fmt "%s" s
+let error loc fmt = Format.kasprintf (fun s -> raise (Error (loc, ScheduleFbyError s))) fmt
+let report fmt = function ScheduleFbyError s -> Format.fprintf fmt "%s" s
 
 type node_status = Unseen | Current | Seen
 
@@ -24,8 +32,6 @@ let make_temp_var (locals : typed_var list ref) name ty ck : typed_var =
   locals := n_var :: !locals;
   n_var
 
-(* duplicate fbys: we replace x = a fby v by x = x' and x' = a fby v to make scheduling possible *)
-(* otherwise, for example, x = 0 fby y and y = 0 fby x is well-defined but not schedulable *)
 let duplicate_fby locals eqs =
   let aux eq_list = function
     | NEQ_fby (x, c, ne) ->
@@ -96,6 +102,8 @@ let build_reads equs =
   !reads
 
 let schedule_equs loc locals equs_l =
+  (* this is mostly like scheduling.ml, except the dependencies are a bit different *)
+
   (* step 0: duplicate fby introducing temp variables *)
   (* since we will do a quite heavy use of equations as graph structure, it is more convenient to store them as integers and use an int-indexed graph *)
   let equs = Array.of_list (duplicate_fby locals equs_l) in
@@ -104,45 +112,35 @@ let schedule_equs loc locals equs_l =
   (* step 1: for each var x, build the list of expression reading the value x *)
   let (reads : ISet.t VMap.t) = build_reads equs in
 
-  (* step 2: for each equation x, construct the graph *)
-  (* preds maps an equation i to the list of equations which should be scheduled BEFORE i *)
-  (* this means that we need a topological order of the transposed graph (but to compute the topological order we have to transpose it, so we do it directly here) *)
-  let preds = Array.make n_equs [] in
-  let add_edge i j = preds.(i) <- j :: preds.(i) in
+  (* step 2: construct the graph *)
+  (* we add an edge from i to j if equation j must be scheduled AFTER equation i *)
+  let graph = Graph.create n_equs in
 
   (* apply f i for all equations i which read the value of x *)
   let iter_reads f x = match VMap.find_opt x reads with None -> () | Some s -> ISet.iter f s in
 
-  (* we need edges x = v fby a -> reads(x) and edges reads(x) -> x+ = e+ *)
+  (* we need edges reads(x) -> x = v fby a and edges x+ = e+ -> reads(x+) *)
   let handle_eq i = function
     | NEQ_ce (x, _) ->
-        (* x = e: we must add edges from reads(x) to eq *)
-        iter_reads (fun j -> add_edge j i) x
+        (* x = e: we must add edges from eq to reads(x) *)
+        iter_reads (fun j -> Graph.add_edge i j graph) x
     | NEQ_fby (x, _, _) ->
-        (* x = v fby a: we must add edges from eq to reads(x) *)
-        iter_reads (fun j -> add_edge i j) x
+        (* x = v fby a: we must add edges from reads(x) to eq *)
+        iter_reads (fun j -> Graph.add_edge j i graph) x
     | NEQ_app (patt, _, _) | NEQ_prim (patt, _, _) ->
-        (* x+ = f(e+): we must add edges from all reads(x_i) to eq *)
-        List.iter (fun x -> iter_reads (fun j -> add_edge j i) x) patt.tpatt_desc
+        (* x+ = f(e+): we must add edges from eq to all reads(x_i) *)
+        List.iter (fun x -> iter_reads (fun j -> Graph.add_edge i j graph) x) patt.tpatt_desc
   in
   Array.iteri handle_eq equs;
 
   (* step 3: construct a topological sort *)
-  let status = Array.make n_equs Unseen in
-  let rec dfs topo x =
-    match status.(x) with
-    | Unseen ->
-        status.(x) <- Current;
-        let n_topo = x :: List.fold_left dfs topo preds.(x) in
-        status.(x) <- Seen;
-        n_topo
-    | Current ->
-        error loc "failed to schedule! found a dependency cycle including equation %a"
-          Norm_ast_printer.print_neq equs.(x)
-    | Seen -> topo
+  let topo =
+    match Graph.topo graph with
+    | Error n ->
+        error loc "failed to schedule! found a depencency cycle including equation %a"
+          Norm_ast_printer.print_neq equs.(n)
+    | Topo l -> l
   in
-  let rec start_dfs topo x = if x = n_equs then topo else start_dfs (dfs topo x) (x + 1) in
-  let topo = List.rev (start_dfs [] 0) in
 
   (* step 4: rebuild the original graph *)
   List.map (fun i -> equs.(i)) topo

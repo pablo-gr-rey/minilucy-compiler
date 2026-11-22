@@ -4,6 +4,7 @@
   asttypes
   c_printer
   c_utils
+  graph
   ident
   lexer
   lv6_utils
@@ -17,7 +18,7 @@
   parse_ast
   parser
   scheduling
-  schedule_full
+  schedule_fby
   simpl_dataflow
   typed_ast_printer
   typed_ast

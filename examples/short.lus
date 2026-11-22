@@ -38,3 +38,12 @@ node test_real(a, b: real) returns (c: real);
 let
    c = a + b * a + b;
 tel;
+
+node proc0 (cpu : bool)
+returns (pc : int; asks_cs0: bool);
+var asks_cs0_vstate : bool;
+let
+    pc = if cpu then 3 else 10;
+    asks_cs0_vstate = false fby (1 <= pc and pc < 6);
+    asks_cs0 = asks_cs0_vstate;
+tel;

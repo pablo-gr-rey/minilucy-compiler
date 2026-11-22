@@ -8,8 +8,9 @@ let usage = "usage: " ^ Sys.argv.(0) ^ " [options] file.lus main"
 let parse_only = ref false
 let type_only = ref false
 let norm_only = ref false
-let simpl_only = ref false
 let sched_only = ref false
+let simpl_only = ref false
+let sched_fby_only = ref false
 let objc_only = ref false
 let verbose = ref false
 let c_folder = ref ""
@@ -22,8 +23,9 @@ let spec =
     ("-parse-only", Arg.Set parse_only, "  stops after parsing");
     ("-type-only", Arg.Set type_only, "  stops after typing");
     ("-norm-only", Arg.Set norm_only, "  stops after normalization");
-    ("-simpl-only", Arg.Set simpl_only, "  stops after simplifying dataflow");
     ("-sched-only", Arg.Set sched_only, "  stops after scheduling");
+    ("-simpl-only", Arg.Set simpl_only, "  stops after simplifying dataflow");
+    ("-sched-only", Arg.Set sched_fby_only, "  stops after scheduling fbys");
     ("-objc-only", Arg.Set objc_only, "  stops after conversion to Obj-C");
     ("-verbose", Arg.Set verbose, "print intermediate transformations");
     ("-v", Arg.Set verbose, "print intermediate transformations");
@@ -113,16 +115,7 @@ let () =
     end;
     if !norm_only then exit 0;
 
-    let simpl_nt = List.map Simpl_dataflow.simpl_dataflow nt in
-    if !verbose then begin
-      Format.printf "/**************************************/@.";
-      Format.printf "/* Simplified norm ast                */@.";
-      Format.printf "/**************************************/@.";
-      Norm_ast_printer.print_node_list_std simpl_nt
-    end;
-    if !simpl_only then exit 0;
-
-    let sched_nt = List.map Schedule_full.schedule simpl_nt in
+    let sched_nt = Scheduling.schedule_file nt in
     if !verbose then begin
       Format.printf "/**************************************/@.";
       Format.printf "/* Scheduled norm ast                 */@.";
@@ -131,7 +124,25 @@ let () =
     end;
     if !sched_only then exit 0;
 
-    let objc_nt = List.map Objc.translate_node sched_nt in
+    let simpl_nt = List.map Simpl_dataflow.simpl_dataflow sched_nt in
+    if !verbose then begin
+      Format.printf "/**************************************/@.";
+      Format.printf "/* Simplified norm ast                */@.";
+      Format.printf "/**************************************/@.";
+      Norm_ast_printer.print_node_list_std simpl_nt
+    end;
+    if !simpl_only then exit 0;
+
+    let fby_sched_nt = List.map Schedule_fby.schedule simpl_nt in
+    if !verbose then begin
+      Format.printf "/**************************************/@.";
+      Format.printf "/* FBY-Scheduled norm ast             */@.";
+      Format.printf "/**************************************/@.";
+      Norm_ast_printer.print_node_list_std fby_sched_nt
+    end;
+    if !sched_fby_only then exit 0;
+
+    let objc_nt = List.map Objc.translate_node fby_sched_nt in
     if !verbose then begin
       Format.printf "/**************************************/@.";
       Format.printf "/* Obj-C                              */@.";
@@ -150,7 +161,8 @@ let () =
       Lv6_utils.compile_lv6 file (Option.get !main_node) !c_folder;
       Lv6_utils.compile_c basename !c_folder
         (Lv6_utils.get_lv6_node_info basename (Option.get !main_node))
-    end;
+    end
+    else if !compile then Lv6_utils.compile_c_no_lv6 basename !c_folder;
 
     (* TODO :o *)
     exit 0
@@ -171,13 +183,17 @@ let () =
       report_loc l;
       eprintf "%a\n@." Norm.report e;
       exit 1
+  | Scheduling.Error (l, e) ->
+      report_loc l;
+      eprintf "%a\n@." Scheduling.report e;
+      exit 1
   | Simpl_dataflow.Error (l, e) ->
       report_loc l;
       eprintf "%a\n@." Simpl_dataflow.report e;
       exit 1
-  | Schedule_full.Error (l, e) ->
+  | Schedule_fby.Error (l, e) ->
       report_loc l;
-      eprintf "%a\n@." Schedule_full.report e;
+      eprintf "%a\n@." Schedule_fby.report e;
       exit 1
   | Objc.Error (l, e) ->
       report_loc l;

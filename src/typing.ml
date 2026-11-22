@@ -446,8 +446,8 @@ let type_node n =
       tn_loc = n.pn_loc;
     }
   in
-  check_causality node.tn_loc node.tn_input equs;
-  (* TODO: useless now *)
+  (* causality check & scheduling is now done after normalization *)
+  (* check_causality node.tn_loc node.tn_input equs; *)
   node
 
 let type_file f =
