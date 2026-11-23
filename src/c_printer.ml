@@ -217,26 +217,29 @@ let build_c_file filename defs_list defs_map =
     (print_list (print_node defs_map) "")
     defs_list
 
-let build_main_file basename defs_list main_node cmp_hept =
+let build_main_file basename defs_list main_node_opt cmp_hept =
   let n_steps = 10000 in
   (* TODO: hardcoded *)
-  let node =
-    match List.find_opt (fun def -> def.node_origin.ocd_name.name = main_node) defs_list with
-    | None -> error dummy_loc "No node named %s in the lus source" main_node
-    | Some d -> d
-  in
-  let input, ret, _, _ = node.node_origin.ocd_step in
-
-  let has_mem = Option.is_some node.node_mem in
-  let hept_info =
-    if cmp_hept then Some (Hept_utils.get_hept_node_info basename main_node) else None
+  let nodes =
+    match main_node_opt with
+    | Some main_node ->
+        begin match
+          List.find_opt (fun def -> def.node_origin.ocd_name.name = main_node) defs_list
+        with
+        | None -> error dummy_loc "No node named %s in the lus source" main_node
+        | Some d -> [ d ]
+        end
+    | None -> defs_list
   in
 
   let print_includes fmt () =
     fprintf fmt "#include <stdio.h>@;";
     if cmp_hept then fprintf fmt "#include <stdlib.h>@;#include <math.h>@;";
     fprintf fmt "#include \"%s.h\"@;" basename;
-    if cmp_hept then fprintf fmt "#include \"hept/%s\"@;" (Option.get hept_info).header_name
+    if cmp_hept then
+      fprintf fmt "#include \"hept/%s\"@;"
+        (Hept_utils.get_hept_node_info basename (List.hd nodes).node_origin.ocd_name.name)
+          .header_name
   in
 
   let print_ctyfmt_in fmt (_, ty) =
@@ -248,172 +251,206 @@ let build_main_file basename defs_list main_node cmp_hept =
   in
   let print_ctyfmts_out = print_list print_ctyfmt_out ", " in
 
-  let print_node_mem fmt () =
-    (* normally, hept has the same criteria as us to generate a memory struct *)
-    match (node.node_mem, node.node_reset) with
-    | Some str, Some reset_name ->
-        fprintf fmt "%a mem;@;%a(&mem);@;" Ident.print_full str.struct_name Ident.print_full
-          reset_name;
-        if cmp_hept then
-          fprintf fmt "%s hept_mem;@;%s(&hept_mem);@;" (Option.get hept_info).mem_type
-            (Option.get hept_info).reset_fun
-    | _ -> ()
-  in
+  let print_node_test fmt node =
+    let input, ret, _, _ = node.node_origin.ocd_step in
+    let hept_info = Hept_utils.get_hept_node_info basename node.node_origin.ocd_name.name in
+    let has_mem = Option.is_some node.node_mem in
+    let nn_name = node.node_origin.ocd_name in
 
-  let print_ret_input fmt () =
-    let dec_input fmt (id, ty) =
-      (* if we're using stdio, for bool, we need to be able to read 1/T/t or 0/F/f, so we need to read a temp char and then convert to bool *)
-      match (ty, cmp_hept) with
-      | Tbool, false ->
-          fprintf fmt "%s input_%a;@;char inputtmp_%a;@;" (get_ctype ty) Ident.print_full id
-            Ident.print_full id
-      | _ -> fprintf fmt "%s input_%a;@;" (get_ctype ty) Ident.print_full id
+    let print_node_mem fmt () =
+      (* normally, hept has the same criteria as us to generate a memory struct *)
+      match (node.node_mem, node.node_reset) with
+      | Some str, Some reset_name ->
+          fprintf fmt "%a mem_%a;@;%a(&mem_%a);@;" Ident.print_full str.struct_name Ident.print_full
+            nn_name Ident.print_full reset_name Ident.print_full nn_name;
+          if cmp_hept then
+            fprintf fmt "%s hept_mem_%a;@;%s(&hept_mem_%a);@;" hept_info.mem_type Ident.print_full
+              nn_name hept_info.reset_fun Ident.print_full nn_name
+      | _ -> ()
     in
-    let print_hept_ret fmt () =
-      if cmp_hept then fprintf fmt "%s hept_ret;@;" (Option.get hept_info).out_type
-    in
-    fprintf fmt "%a ret;@;%a%a@;" Ident.print_full node.node_ret.struct_name print_hept_ret ()
-      (print_list dec_input "") input
-  in
 
-  let print_node_info fmt () =
-    let dec_var fmt ((id, ty) : oc_var) = fprintf fmt "\\\"%s\\\":%s" id.name (get_ctype ty) in
-
-    if cmp_hept then
-      fprintf fmt "printf(\"testing node %s (file %s.lus) on %d steps...\\n\");@;" main_node
-        basename n_steps
-    else
-      fprintf fmt "printf(\"#inputs %a\\n#outputs %a\\n\\n\");@;" (print_list dec_var ", ") input
-        (print_list dec_var ", ") ret
-  in
-
-  let print_for_loop fmt () =
-    let print_n_steps fmt () = if cmp_hept then fprintf fmt "step < %d" n_steps in
-    fprintf fmt "for (int step = 0; %a; step++)" print_n_steps ()
-  in
-
-  let print_io_step fmt () =
-    let scan_input fmt () =
-      let bool_inputs = List.filter (fun (_, ty) -> ty = Tbool) input in
+    let print_ret_input fmt () =
       let dec_input fmt (id, ty) =
-        fprintf fmt "&input%s_%a" (if ty = Tbool then "tmp" else "") Ident.print_full id
+        (* if we're using stdio, for bool, we need to be able to read 1/T/t or 0/F/f, so we need to read a temp char and then convert to bool *)
+        match (ty, cmp_hept) with
+        | Tbool, false ->
+            fprintf fmt "%s input_%a_%a;@;char inputtmp_%a_%a;@;" (get_ctype ty) Ident.print_full
+              nn_name Ident.print_full id Ident.print_full nn_name Ident.print_full id
+        | _ ->
+            fprintf fmt "%s input_%a_%a;@;" (get_ctype ty) Ident.print_full nn_name Ident.print_full
+              id
       in
-      let print_fail fmt () =
-        fprintf fmt "{@;@[<v 4>    printf(\"Failed to read input; exiting\\n\");@;return 1;@]@;}"
+      let print_hept_ret fmt () =
+        if cmp_hept then fprintf fmt "%s hept_ret_%a;@;" hept_info.out_type Ident.print_full nn_name
       in
-      let handle_bool fmt (id, _) =
-        let print_tmp fmt () = fprintf fmt "inputtmp_%a" Ident.print_full id in
-        let print_res fmt () = fprintf fmt "input_%a" Ident.print_full id in
-        fprintf fmt
-          "if (%a == '1' || %a == 'T' || %a == 't') %a = true;@;\
-           else {@;\
-           @[<v 4>    %a = false;@;\
-           if (%a != '0' && %a != 'F' && %a != 'f') bool_read_OK = false;@]@;\
-           }@;\
-           if (!bool_read_OK) %a@;"
-          print_tmp () print_tmp () print_tmp () print_res () print_res () print_tmp () print_tmp ()
-          print_tmp () print_fail ()
-      in
-      let handle_bools fmt () =
-        if bool_inputs <> [] then begin
-          fprintf fmt "bool bool_read_OK = true;@;%a" (print_list handle_bool "") bool_inputs
-        end
-      in
-      if input <> [] then
-        fprintf fmt "if (scanf(\" %a\", %a) != %d) %a@;@;%a@;" print_ctyfmts_in input
-          (print_list dec_input ", ") input (List.length input) print_fail () handle_bools ()
+      fprintf fmt "%a ret_%a;@;%a%a@;" Ident.print_full node.node_ret.struct_name Ident.print_full
+        nn_name print_hept_ret () (print_list dec_input "") input
     in
-    let apply_step fmt () =
-      let dec_input fmt (id, _) = fprintf fmt "input_%a" Ident.print_full id in
-      let dec_mem fmt () = fprintf fmt "&mem" in
-      (* fprintf fmt "ret = %a(%a%s%s);@;@;" Ident.print_full node.node_step
+
+    let print_node_info fmt () =
+      let dec_var fmt ((id, ty) : oc_var) = fprintf fmt "\\\"%s\\\":%s" id.name (get_ctype ty) in
+
+      if cmp_hept then
+        fprintf fmt "printf(\"\\ntesting node %a (file %s.lus) on %d steps...\\n\");@;"
+          Ident.print_full node.node_origin.ocd_name basename n_steps
+      else
+        fprintf fmt "printf(\"#inputs %a\\n#outputs %a\\n\\n\");@;" (print_list dec_var ", ") input
+          (print_list dec_var ", ") ret
+    in
+
+    let print_for_loop fmt () =
+      let print_n_steps fmt () = if cmp_hept then fprintf fmt "step < %d" n_steps in
+      fprintf fmt "for (int step = 0; %a; step++)" print_n_steps ()
+    in
+
+    let print_io_step fmt () =
+      let scan_input fmt () =
+        let bool_inputs = List.filter (fun (_, ty) -> ty = Tbool) input in
+        let dec_input fmt (id, ty) =
+          fprintf fmt "&input%s_%a_%a"
+            (if ty = Tbool then "tmp" else "")
+            Ident.print_full nn_name Ident.print_full id
+        in
+        let print_fail fmt () =
+          fprintf fmt "{@;@[<v 4>    printf(\"Failed to read input; exiting\\n\");@;return 1;@]@;}"
+        in
+        let handle_bool fmt (id, _) =
+          let print_tmp fmt () =
+            fprintf fmt "inputtmp_%a_%a" Ident.print_full nn_name Ident.print_full id
+          in
+          let print_res fmt () =
+            fprintf fmt "input_%a_%a" Ident.print_full nn_name Ident.print_full id
+          in
+          fprintf fmt
+            "if (%a == '1' || %a == 'T' || %a == 't')@;\
+            \    %a = true;@;\
+             else {@;\
+             @[<v 4>    %a = false;@;\
+             if (%a != '0' && %a != 'F' && %a != 'f')@;\
+            \    bool_read_OK = false;@]@;\
+             }@;\
+             if (!bool_read_OK) %a@;"
+            print_tmp () print_tmp () print_tmp () print_res () print_res () print_tmp () print_tmp
+            () print_tmp () print_fail ()
+        in
+        let handle_bools fmt () =
+          if bool_inputs <> [] then begin
+            fprintf fmt "bool bool_read_OK = true;@;%a" (print_list handle_bool "") bool_inputs
+          end
+        in
+        if input <> [] then
+          fprintf fmt "if (scanf(\" %a\", %a) != %d) %a@;@;%a@;" print_ctyfmts_in input
+            (print_list dec_input ", ") input (List.length input) print_fail () handle_bools ()
+      in
+      let apply_step fmt () =
+        let dec_input fmt (id, _) =
+          fprintf fmt "input_%a_%a" Ident.print_full nn_name Ident.print_full id
+        in
+        let dec_mem fmt () = fprintf fmt "&mem_%a" Ident.print_full nn_name in
+        (* fprintf fmt "ret = %a(%a%s%s);@;@;" Ident.print_full node.node_step
         (print_list dec_input ", ") input
         (if has_mem && input <> [] then ", " else "")
         (if has_mem then "&mem" else "") *)
-      fprintf fmt "ret = %a(%a);@;@;" Ident.print_full node.node_step
-        (print_2_lists dec_input dec_mem ", ")
-        (input, if has_mem then [ () ] else [])
-    in
-    let print_output fmt () =
-      let dec_input fmt (id, _) = fprintf fmt "input_%a" Ident.print_full id in
-      let dec_output fmt (id, _) = fprintf fmt "ret.%a" Ident.print_full id in
-      fprintf fmt "printf(\"%a #outs %a\\n\\n\", %a);" print_ctyfmts_out input print_ctyfmts_out ret
-        (* (print_list dec_input ", ") input
+        fprintf fmt "ret_%a = %a(%a);@;@;" Ident.print_full nn_name Ident.print_full node.node_step
+          (print_2_lists dec_input dec_mem ", ")
+          (input, if has_mem then [ () ] else [])
+      in
+      let print_output fmt () =
+        let dec_input fmt (id, _) =
+          fprintf fmt "input_%a_%a" Ident.print_full nn_name Ident.print_full id
+        in
+        let dec_output fmt (id, _) =
+          fprintf fmt "ret_%a.%a" Ident.print_full nn_name Ident.print_full id
+        in
+        fprintf fmt "printf(\"%a #outs %a\\n\\n\", %a);" print_ctyfmts_out input print_ctyfmts_out
+          ret
+          (* (print_list dec_input ", ") input
         (if input <> [] then ", " else "")
         (print_list dec_output ", ") ret *)
-        (print_2_lists dec_input dec_output ", ")
-        (input, ret)
-    in
-    fprintf fmt "printf(\"#step %%d\\n\", step);@;@;%a%a%a" scan_input () apply_step () print_output
-      ()
-  in
-
-  let print_hept_step fmt () =
-    let write_input fmt (id, ty) =
-      let print_rand fmt () =
-        match ty with
-        | Tbool -> fprintf fmt "(bool)(rand() & 1)"
-        | Tint ->
-            fprintf fmt "rand() %% 100 + 1"
-            (* some nodes cannot handle inputs being 0 (ex. counter_modulo), of course this gives no guarantee but it seems to work well enough to test on most files *)
-        | Treal -> fprintf fmt "(double)rand() / (double)RAND_MAX * 10.0"
+          (print_2_lists dec_input dec_output ", ")
+          (input, ret)
       in
-      fprintf fmt "input_%a = %a;@;" Ident.print_full id print_rand ()
+      fprintf fmt "printf(\"#step %%d\\n\", step);@;@;%a%a%a" scan_input () apply_step ()
+        print_output ()
     in
-    let compute_res fmt () =
-      let dec_input fmt (id, _) = fprintf fmt "input_%a" Ident.print_full id in
-      let dec_mem fmt () = fprintf fmt "&mem" in
-      let dec_hept_out fmt () = fprintf fmt "&hept_ret" in
-      let dec_hept_mem fmt () = fprintf fmt "&hept_mem" in
-      fprintf fmt "ret = %a(%a);@;%s(%a);@;" Ident.print_full node.node_step
-        (print_2_lists dec_input dec_mem ", ")
-        (input, if has_mem then [ () ] else [])
-        (Option.get hept_info).step_fun
-        (print_3_lists dec_input dec_hept_out dec_hept_mem ", ")
-        (input, [ () ], if has_mem then [ () ] else [])
-    in
-    let handle_output fmt () =
-      let cmp_var fmt ((id, ty) : oc_var) =
-        match ty with
-        | Tint | Tbool -> fprintf fmt "hept_ret.%s != ret.%a" id.name Ident.print_full id
-        | Treal ->
-            fprintf fmt "fabs(hept_ret.%s - ret.%a) > 1e-3" id.name Ident.print_full
-              id (* TODO: hardcoded *)
-      in
-      let dec_output fmt (id, ty) =
-        fprintf fmt
-          "if (%a) {@;\
-           @[<v 4>    printf(\"ERROR at step %%d for node %a, field %a: got %a, expected %a\\n\", \
-           step, ret.%a, hept_ret.%s);@;\
-           return 1;@]@;\
-           }@;"
-          cmp_var (id, ty) Ident.print_full node.node_origin.ocd_name Ident.print_full id
-          print_ctyfmt_out (id, ty) print_ctyfmt_out (id, ty) Ident.print_full id id.name
-      in
-      fprintf fmt "%a" (print_list dec_output "") ret
-    in
-    fprintf fmt "%a%a%a" (print_list write_input "") input compute_res () handle_output ()
-  in
 
-  let print_step fmt () = if cmp_hept then print_hept_step fmt () else print_io_step fmt () in
+    let print_hept_step fmt () =
+      let write_input fmt (id, ty) =
+        let print_rand fmt () =
+          match ty with
+          | Tbool -> fprintf fmt "(bool)(rand() & 1)"
+          | Tint ->
+              fprintf fmt "rand() %% 100 + 1"
+              (* some nodes cannot handle inputs being 0 (ex. counter_modulo), of course this gives no guarantee but it seems to work well enough to test on most files *)
+          | Treal -> fprintf fmt "(double)rand() / (double)RAND_MAX * 10.0"
+        in
+        fprintf fmt "input_%a_%a = %a;@;" Ident.print_full nn_name Ident.print_full id print_rand ()
+      in
+      let compute_res fmt () =
+        let dec_input fmt (id, _) =
+          fprintf fmt "input_%a_%a" Ident.print_full nn_name Ident.print_full id
+        in
+        let dec_mem fmt () = fprintf fmt "&mem_%a" Ident.print_full nn_name in
+        let dec_hept_out fmt () = fprintf fmt "&hept_ret_%a" Ident.print_full nn_name in
+        let dec_hept_mem fmt () = fprintf fmt "&hept_mem_%a" Ident.print_full nn_name in
+        fprintf fmt "ret_%a = %a(%a);@;%s(%a);@;" Ident.print_full nn_name Ident.print_full
+          node.node_step
+          (print_2_lists dec_input dec_mem ", ")
+          (input, if has_mem then [ () ] else [])
+          hept_info.step_fun
+          (print_3_lists dec_input dec_hept_out dec_hept_mem ", ")
+          (input, [ () ], if has_mem then [ () ] else [])
+      in
+      let handle_output fmt () =
+        let cmp_var fmt ((id, ty) : oc_var) =
+          match ty with
+          | Tint | Tbool ->
+              fprintf fmt "hept_ret_%a.%s != ret_%a.%a" Ident.print_full nn_name id.name
+                Ident.print_full nn_name Ident.print_full id
+          | Treal ->
+              fprintf fmt "fabs(hept_ret_%a.%s - ret_%a.%a) > 1e-3" Ident.print_full nn_name id.name
+                Ident.print_full nn_name Ident.print_full id (* TODO: hardcoded *)
+        in
+        let dec_output fmt (id, ty) =
+          fprintf fmt
+            "if (%a) {@;\
+             @[<v 4>    printf(\"ERROR at step %%d for node %a, field %a: got %a, expected \
+             %a\\n\", step, ret_%a.%a, hept_ret_%a.%s);@;\
+             return 1;@]@;\
+             }@;"
+            cmp_var (id, ty) Ident.print_full node.node_origin.ocd_name Ident.print_full id
+            print_ctyfmt_out (id, ty) print_ctyfmt_out (id, ty) Ident.print_full nn_name
+            Ident.print_full id Ident.print_full nn_name id.name
+        in
+        fprintf fmt "%a" (print_list dec_output "") ret
+      in
+      fprintf fmt "%a%a%a" (print_list write_input "") input compute_res () handle_output ()
+    in
 
-  let print_conclusion fmt () =
-    if cmp_hept then fprintf fmt "printf(\"Ran for %d steps, got the same output!\\n\");@;" n_steps
+    let print_step fmt () = if cmp_hept then print_hept_step fmt () else print_io_step fmt () in
+
+    let print_conclusion fmt () =
+      if cmp_hept then
+        fprintf fmt "@;printf(\"Ran for %d steps, got the same output!\\n\");" n_steps
+    in
+
+    fprintf fmt
+      "@[<v 4>    // --------------- %s NODE %a FROM FILE %s.lus ---------------@;\
+       @;\
+       %a%a%a@;\
+       %a {@;\
+       @[<v 4>    %a@]@;\
+       }%a@]@;"
+      (if cmp_hept then "TESTING" else "SIMULATING")
+      Ident.print_full node.node_origin.ocd_name basename print_node_mem () print_ret_input ()
+      print_node_info () print_for_loop () print_step () print_conclusion ()
   in
 
   Format.asprintf
-    "@[<v>// file auto-generated from Lustre file %s.lus@;\
-     %a@;\
-     int main(void) {@;\
-     @[<v 4>    %a%a%a@;\
-     %a {@;\
-     @[<v 4>    %a@]@;\
-     }@;\
-     %a@]@;\
-     }@;\
-     @]"
-    basename print_includes () print_node_mem () print_ret_input () print_node_info ()
-    print_for_loop () print_step () print_conclusion ()
+    "@[<v>// file auto-generated from Lustre file %s.lus@;%a@;int main(void) {@;%a}@;@]" basename
+    print_includes ()
+    (print_list_eol print_node_test "")
+    nodes
 
 let print_c_files defs basename gen_main gen_hept node =
   (* build the node infos *)
@@ -424,11 +461,10 @@ let print_c_files defs basename gen_main gen_hept node =
   let h_file = build_h_file basename defs_list in
   let c_file = build_c_file basename defs_list defs_map in
   let main_file =
-    match (gen_main, gen_hept, node) with
-    | true, _, Some node -> Some (build_main_file basename defs_list node gen_hept)
-    | false, true, _ -> error dummy_loc "Cannot specify -compare-hept without -gen-main"
-    | false, false, _ -> None
-    | _ -> error dummy_loc "A main node must be specified to generate a main.c file"
+    match (gen_main, gen_hept) with
+    | true, _ -> Some (build_main_file basename defs_list node gen_hept)
+    | false, true -> error dummy_loc "Cannot specify -compare-hept without -gen-main"
+    | false, false -> None
   in
 
   (h_file, c_file, main_file)

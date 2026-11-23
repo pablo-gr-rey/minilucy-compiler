@@ -153,9 +153,17 @@ let () =
     end;
     if !objc_only then exit 0;
 
+    if Option.is_some !main_node && !all_nodes then begin
+      eprintf "Cannot specify both a main node and -all-nodes\n";
+      exit 1
+    end;
     if Option.is_none !main_node && !gen_c_main && not !all_nodes then begin
       eprintf
-        "Cannot generate a main.c file without a main node or -all-nodes (in case of hept-compare)";
+        "Cannot generate a main.c file without a main node or -all-nodes (in case of hept-compare)\n";
+      exit 1
+    end;
+    if Option.is_none !main_node && not !compare_hept then begin
+      eprintf "Must specify a main node for simulation\n";
       exit 1
     end;
 
@@ -174,7 +182,7 @@ let () =
     else if !compile then Hept_utils.compile_c_no_hept basename !c_folder;
 
     if !run_main && not !compile then begin
-      eprintf "Cannot specify -run-main without -compile";
+      eprintf "Cannot specify -run-main without -compile\n";
       exit 1
     end;
 
