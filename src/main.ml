@@ -15,7 +15,7 @@ let objc_only = ref false
 let verbose = ref false
 let c_folder = ref ""
 let gen_c_main = ref false
-let compare_lv6 = ref false
+let compare_hept = ref false
 let compile = ref false
 let all_nodes = ref false
 let run_main = ref false
@@ -34,12 +34,12 @@ let spec =
     ("-print-id", Arg.Set Ident.print_id, "print variables ID");
     ("-output-folder", Arg.Set_string c_folder, "folder where .c and .h files are written");
     ("-gen-main", Arg.Set gen_c_main, "generate a main.c file allowing simulation of the node");
-    ( "-compare-lv6",
-      Arg.Set compare_lv6,
-      "generate a main.c file comparing output of this compiler and output of lv6 on random input"
+    ( "-compare-hept",
+      Arg.Set compare_hept,
+      "generate a main.c file comparing output of this compiler and output of hept on random input"
     );
     ("-compile", Arg.Set compile, "compile files with gcc");
-    ("-all-nodes", Arg.Set all_nodes, "compare all nodes with lv6 (requires -compare-lv6)");
+    ("-all-nodes", Arg.Set all_nodes, "compare all nodes with hept (requires -compare-hept)");
     ("-run-main", Arg.Set run_main, "run the produced executable");
   ]
 
@@ -69,18 +69,12 @@ let file, main_node =
         Arg.usage spec usage;
         exit 1 ) *)
 
-let report_loc (b, e) =
-  let l = b.pos_lnum in
-  let fc = b.pos_cnum - b.pos_bol + 1 in
-  let lc = e.pos_cnum - b.pos_bol + 1 in
-  eprintf "File \"%s\", line %d, characters %d-%d:\n" file l fc lc
-
 let write_file path content =
   let oc = open_out path in
   Fun.protect ~finally:(fun () -> close_out oc) (fun () -> output_string oc content)
 
 let write_outputs basename output_dir h_content c_content main_content =
-  Lv6_utils.run_command "mkdir" [ "-p"; output_dir ];
+  Hept_utils.run_command "mkdir" [ "-p"; output_dir ];
 
   let h_path = Filename.concat output_dir (basename ^ ".h") in
   let c_path = Filename.concat output_dir (basename ^ ".c") in
@@ -96,6 +90,8 @@ let write_outputs basename output_dir h_content c_content main_content =
 
 let () =
   Format.set_margin 100;
+  Asttypes.set_file file;
+
   let c = open_in file in
   let lb = Lexing.from_channel c in
   try
@@ -159,90 +155,72 @@ let () =
 
     if Option.is_none !main_node && !gen_c_main && not !all_nodes then begin
       eprintf
-        "Cannot generate a main.c file without a main node or -all-nodes (in case of lv6-compare)";
+        "Cannot generate a main.c file without a main node or -all-nodes (in case of hept-compare)";
       exit 1
     end;
 
     let basename = Filename.remove_extension (Filename.basename file) in
 
-    let handle_node use_subdir node =
-      let h_file, c_file, main_file =
-        C_printer.print_c_files objc_nt basename !gen_c_main !compare_lv6 node
-      in
-
-      let folder =
-        if use_subdir && Option.is_some node then Filename.concat !c_folder (Option.get node)
-        else !c_folder
-      in
-      write_outputs basename folder h_file c_file main_file;
-
-      if !compile && !compare_lv6 && Option.is_some node then begin
-        Lv6_utils.compile_lv6 file (Option.get node) folder;
-        Lv6_utils.compile_c basename folder (Lv6_utils.get_lv6_node_info basename (Option.get node));
-        Some (Filename.concat folder "main")
-      end
-      else if !compile then begin
-        Lv6_utils.compile_c_no_lv6 basename folder;
-        Some (Filename.concat folder "main")
-      end
-      else None
+    let h_file, c_file, main_file =
+      C_printer.print_c_files objc_nt basename !gen_c_main !compare_hept !main_node
     in
 
-    let lv6_nodes =
-      if Option.is_some !main_node then [ !main_node ]
-      else if !all_nodes then
-        List.map (fun (n : Objc_ast.oc_definition) -> Some n.ocd_name.name) objc_nt
-      else [ None ]
-    in
+    write_outputs basename !c_folder h_file c_file main_file;
 
-    let mains = List.map (handle_node (List.length lv6_nodes > 1)) lv6_nodes in
-
-    let run_spec_main = function None -> () | Some f -> Lv6_utils.run_command f [] in
-
-    List.iter run_spec_main mains;
+    if !compile && !compare_hept then begin
+      Hept_utils.compile_hept file !c_folder;
+      Hept_utils.compile_c basename !c_folder
+    end
+    else if !compile then Hept_utils.compile_c_no_hept basename !c_folder;
 
     if !run_main && not !compile then begin
       eprintf "Cannot specify -run-main without -compile";
       exit 1
     end;
 
+    if !run_main then begin
+      printf "\n%!";
+      Hept_utils.run_command (Filename.concat !c_folder "main") [];
+      printf "\nALL TESTS OK\n" (* if not, an exception is thrown *)
+    end;
+
     (* TODO :o *)
     exit 0
   with
   | Lexical_error s ->
-      report_loc (lexeme_start_p lb, lexeme_end_p lb);
+      Asttypes.report_loc (lexeme_start_p lb, lexeme_end_p lb);
       eprintf "lexical error: %s\n@." s;
       exit 1
   | Parsing.Parse_error ->
-      report_loc (lexeme_start_p lb, lexeme_end_p lb);
+      Asttypes.report_loc (lexeme_start_p lb, lexeme_end_p lb);
       eprintf "syntax error\n@.";
       exit 1
   | Typing.Error (l, e) ->
-      report_loc l;
+      Asttypes.report_loc l;
       eprintf "%a\n@." Typing.report e;
       exit 1
   | Norm.Error (l, e) ->
-      report_loc l;
+      Asttypes.report_loc l;
       eprintf "%a\n@." Norm.report e;
       exit 1
   | Scheduling.Error (l, e) ->
-      report_loc l;
+      Asttypes.report_loc l;
       eprintf "%a\n@." Scheduling.report e;
       exit 1
   | Simpl_dataflow.Error (l, e) ->
-      report_loc l;
+      Asttypes.report_loc l;
       eprintf "%a\n@." Simpl_dataflow.report e;
       exit 1
   | Schedule_fby.Error (l, e) ->
-      report_loc l;
+      Asttypes.report_loc l;
       eprintf "%a\n@." Schedule_fby.report e;
       exit 1
   | Objc.Error (l, e) ->
-      report_loc l;
+      Asttypes.report_loc l;
       eprintf "%a\n@." Objc.report e;
       exit 1
   | C_utils.Error (l, e) ->
-      report_loc l;
+      Asttypes.report_loc l;
       eprintf "%a\n@." C_utils.report e;
       exit 1
   | e ->

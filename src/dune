@@ -5,9 +5,9 @@
   c_printer
   c_utils
   graph
+  hept_utils
   ident
   lexer
-  lv6_utils
   main
   norm_ast_printer
   norm_ast

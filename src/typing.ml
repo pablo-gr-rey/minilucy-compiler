@@ -30,6 +30,10 @@ let dummy_loc = (Lexing.dummy_pos, Lexing.dummy_pos)
 let error loc e = raise (Error (loc, e))
 let errors loc s = error loc (Other s)
 
+let warning loc fmt =
+  report_loc loc;
+  Format.kasprintf (fun s -> eprintf "Warning: %s\n@." s) fmt
+
 let print_base_type fmt = function
   | Tbool -> fprintf fmt "bool"
   | Tint -> fprintf fmt "int"
@@ -43,6 +47,20 @@ let print_type fmt = function
       print_base_type fmt t;
       List.iter (fun t -> fprintf fmt " * %a" print_base_type t) tl;
       fprintf fmt ")"
+
+let print_op_int = function
+  | Op_add -> "+"
+  | Op_sub -> "-"
+  | Op_mul -> "*"
+  | Op_div -> "/"
+  | _ -> ""
+
+let print_op_real = function
+  | Op_add -> "+."
+  | Op_sub -> "-."
+  | Op_mul -> "*."
+  | Op_div -> "/."
+  | _ -> ""
 
 let report fmt = function
   | UnboundVar id -> fprintf fmt "unbound variable %s" id
@@ -216,7 +234,12 @@ and type_expr_desc env loc = function
       let te2 = type_expr env e2 in
       begin match (te1.texpr_type, te2.texpr_type) with
       | [ Tint ], [ Tint ] -> (TE_op (op, [ te1; te2 ]), [ Tint ])
+      | [ Treal ], [ Treal ] ->
+          warning e1.pexpr_loc "use of %s between real operands is misleading, use %s instead"
+            (print_op_int op) (print_op_real op);
+          (TE_op (real_op_of_int_op op, [ te1; te2 ]), [ Treal ])
       | [ (Tint | Treal) ], [ (Tint | Treal) ] ->
+          warning e1.pexpr_loc "implicit cast from int to real";
           (TE_op (real_op_of_int_op op, [ real_expr_of_expr te1; real_expr_of_expr te2 ]), [ Treal ])
       | [ (Tint | Treal) ], ty -> error e2.pexpr_loc (ExpectedNum ty)
       | ty, _ -> error e1.pexpr_loc (ExpectedNum ty)

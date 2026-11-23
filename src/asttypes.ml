@@ -3,6 +3,17 @@ type base_ty = Tbool | Tint | Treal
 type ty = base_ty list
 type const = Cbool of bool | Cint of int | Creal of float | Cnil of base_ty
 
+let set_file, report_loc =
+  let file = ref "" in
+  let set_file s = file := s in
+  let report_loc ((b, e) : location) =
+    let l = b.pos_lnum in
+    let fc = b.pos_cnum - b.pos_bol + 1 in
+    let lc = e.pos_cnum - b.pos_bol + 1 in
+    Printf.eprintf "File \"%s\", line %d, characters %d-%d:\n" !file l fc lc
+  in
+  (set_file, report_loc)
+
 type op =
   | Op_eq
   | Op_neq

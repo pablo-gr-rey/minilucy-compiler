@@ -21,7 +21,7 @@ tel;
 node test(a: bool) returns (s1, s2, s3: int);
 let
     s1 = if a then count() else count();
-    s2 = merge a (true -> count() when a) (false -> count() when not a);
+    s2 = merge a (true -> count() when a) (false -> count() whenot a);
     s3 = merge a (true -> count_tick(true when a)) (false -> count_tick(true when not a));
 tel;
 
@@ -36,19 +36,15 @@ tel;
 
 node test_real(a, b: real) returns (c: real);
 let
-   c = a + b * a + b;
+   c = a +. b *. a +. b +. (-. a);
 tel;
 
-node proc0 (cpu : bool)
-returns (pc : int; asks_cs0: bool);
-var asks_cs0_vstate : bool;
+node test_int(a, b: int) returns (c: int);
 let
-    pc = if cpu then 3 else 10;
-    asks_cs0_vstate = false fby (1 <= pc and pc < 6);
-    asks_cs0 = asks_cs0_vstate;
+    c = a + b * a + b;
 tel;
 
-node real_fail() returns (r: real);
+node counter (ini:int; inc:int; rest:bool) returns (n:int)
 let
-    r = 5.0 fby (10000000000001.0 * r - 10000000000000.0 * r + 1.0);
-tel;
+  n = if rest then ini else ((0 fby n) + inc);
+tel

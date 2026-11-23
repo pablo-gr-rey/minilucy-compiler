@@ -34,6 +34,7 @@
 	"true", CONST_BOOL(true);
 	"var", VAR;
 	"when", WHEN;
+	"whenot", WHENOT;
       ];
     fun s ->
       try Hashtbl.find h s with Not_found -> IDENT s
@@ -77,6 +78,14 @@ rule token = parse
       { STAR }
   | "/"
       { SLASH }
+	| "-."
+      { MINUS_F }
+  | "+."
+      { PLUS_F }
+  | "*."
+      { STAR_F }
+  | "/."
+      { SLASH_F }
   | ">"
       { COMP Op_gt }
   | ">="

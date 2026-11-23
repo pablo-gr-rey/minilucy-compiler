@@ -35,21 +35,26 @@
 %token LPAREN
 %token MERGE
 %token MINUS
+%token MINUS_F
 %token MOD
 %token NODE
 %token NOT
 %token OR
 %token PLUS
+%token PLUS_F
 %token PRE
 %token RETURNS
 %token RPAREN
 %token SEMICOL
 %token SLASH
+%token SLASH_F
 %token STAR
+%token STAR_F
 %token TEL
 %token THEN
 %token VAR
 %token WHEN
+%token WHENOT
 
 
 %nonassoc THEN
@@ -59,9 +64,9 @@
 %left OR
 %left AND
 %left COMP EQUAL NEQ                          /* < <= > >= <> = <> */
-%left PLUS MINUS                              /* + -  */
-%left STAR SLASH DIV MOD                      /* * /  mod */
-%nonassoc uminus                              /* - */
+%left PLUS PLUS_F MINUS MINUS_F				  /* + +. - -.  */
+%left STAR STAR_F SLASH SLASH_F DIV MOD       /* * *. / /.  mod */
+%nonassoc uminus uminus_f                     /* - */
 %nonassoc NOT PRE                             /* not pre */
 %left DOT
 
@@ -80,10 +85,14 @@ node_decs:
 | node node_decs    { $1 :: $2 }
 ;
 
+opt_semicol:
+| /* empty */ 	{ () }
+| SEMICOL 		{ () }
+
 
 node:
 | NODE IDENT LPAREN in_params RPAREN
-  RETURNS LPAREN out_params RPAREN SEMICOL
+  RETURNS LPAREN out_params RPAREN opt_semicol
   local_params
   LET eq_list TEL semi_opt
     { { pn_name = $2;
@@ -139,7 +148,10 @@ param:
   | ident_comma_list COLON typ WHEN NOT IDENT
 	  { let typ = $3 and ck = $6 in
 	  	List.map (fun id -> (id, typ, PC_whennot ck)) $1}
-	  
+  | ident_comma_list COLON typ WHENOT IDENT
+	  { let typ = $3 and ck = $5 in
+	  	List.map (fun id -> (id, typ, PC_whennot ck)) $1}
+
 ;
 
 eq_list:
@@ -159,6 +171,11 @@ pattern:
     { mk_patt (PP_ident $1) }
 | LPAREN IDENT COMMA ident_comma_list RPAREN
     { mk_patt (PP_tuple($2::$4)) }
+;
+
+merge_arrow:
+| ARROW { () }
+| IMPL { () }
 ;
 
 expr:
@@ -184,6 +201,14 @@ expr:
     { mk_expr (PE_op (Op_div, [$1; $3])) }
 | expr MOD expr
     { mk_expr (PE_op (Op_mod, [$1; $3])) }
+| expr PLUS_F expr
+    { mk_expr (PE_op (Op_add_f, [$1; $3])) }
+| expr MINUS_F expr
+    { mk_expr (PE_op (Op_sub_f, [$1; $3])) }
+| expr STAR_F expr
+    { mk_expr (PE_op (Op_mul_f, [$1; $3])) }
+| expr SLASH_F expr
+    { mk_expr (PE_op (Op_div_f, [$1; $3])) }
 | expr COMP expr
     { mk_expr (PE_op ($2, [$1; $3])) }
 | expr EQUAL expr
@@ -202,10 +227,14 @@ expr:
 	{ mk_expr (PE_when ($1, true, $3)) }
 | expr WHEN NOT IDENT
 	{ mk_expr (PE_when ($1, false, $4)) }
-| MERGE IDENT LPAREN CONST_BOOL ARROW expr RPAREN LPAREN CONST_BOOL ARROW expr RPAREN
+| expr WHENOT IDENT
+  { mk_expr (PE_when ($1, false, $3)) }
+| MERGE IDENT LPAREN CONST_BOOL merge_arrow expr RPAREN LPAREN CONST_BOOL merge_arrow expr RPAREN
 	{ mk_expr (PE_merge ($2, $4, $6, $9, $11))}
 | MINUS expr /* %prec uminus */
     { mk_expr (PE_op (Op_sub, [$2])) }
+| MINUS_F expr /* %prec uminus_f */
+	{ mk_expr (PE_op (Op_sub_f, [$2])) }
 | NOT expr
     { mk_expr (PE_op (Op_not, [$2])) }
 | PRE expr
