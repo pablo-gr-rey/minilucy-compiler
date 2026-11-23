@@ -121,13 +121,15 @@ and print_cstmt ctx def fmt stmt =
   | OCS_prim (vars, func, args) ->
       begin match (vars, func.name, args) with
       | [ x ], "int_of_real", [ oce ] ->
-          fprintf fmt "@[%a = (int)(@[%a@]);@]" Ident.print_full x (print_cexpr ctx def) oce
+          fprintf fmt "@[%a = (int)(@[%a@]);@]" print_var x (print_cexpr ctx def) oce
       | [ x ], "real_of_int", [ oce ] ->
-          fprintf fmt "@[%a = (float)(@[%a@]);@]" Ident.print_full x (print_cexpr ctx def) oce
+          fprintf fmt "@[%a = (double)(@[%a@]);@]" print_var x (print_cexpr ctx def) oce
       | _ -> error dummy_loc "invalid primitive call %s" func.name
       end
   | OCS_case (x, ocsT, ocsF) ->
-      fprintf fmt "if (%a) {@;%a}@;else {@;%a}" Ident.print_full x (print_cstmts ctx true def) ocsT
+      (* PABLI ICI: si cette node est un output, mal géré!! *)
+      printf "converting case statement:\n%a%!\n" Objc_ast_printer.print_ocstmt stmt;
+      fprintf fmt "if (%a) {@;%a}@;else {@;%a}" print_var x (print_cstmts ctx true def) ocsT
         (print_cstmts ctx true def) ocsF
 
 and print_cstmts ctx indent def fmt cstmts =
@@ -371,7 +373,9 @@ let build_main_file basename defs_list main_node cmp_lv6 =
       let print_rand fmt () =
         match ty with
         | Tbool -> fprintf fmt "(bool)(rand() & 1)"
-        | Tint -> fprintf fmt "rand() %% 100"
+        | Tint ->
+            fprintf fmt
+              "rand() %% 100 + 1" (* some node cannot handle inputs being 0 (ex. counter_modulo) *)
         | Treal -> fprintf fmt "(double)rand() / (double)RAND_MAX * 100.0"
       in
       fprintf fmt "input_%a = %a;@;" Ident.print_full id print_rand ()
@@ -393,7 +397,8 @@ let build_main_file basename defs_list main_node cmp_lv6 =
         match ty with
         | Tint | Tbool -> fprintf fmt "output_%a != ret.%a" Ident.print_full id Ident.print_full id
         | Treal ->
-            fprintf fmt "fabs(output_%a - ret.%a) > 1e-5" Ident.print_full id Ident.print_full id
+            fprintf fmt "fabs(output_%a - ret.%a) > 1e-5" Ident.print_full id Ident.print_full
+              id (* TODO: hardcoded *)
       in
       let dec_output fmt (id, ty) =
         fprintf fmt

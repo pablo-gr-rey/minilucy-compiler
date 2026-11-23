@@ -47,3 +47,8 @@ let
     asks_cs0_vstate = false fby (1 <= pc and pc < 6);
     asks_cs0 = asks_cs0_vstate;
 tel;
+
+node real_fail() returns (r: real);
+let
+    r = 5.0 fby (10000000000001.0 * r - 10000000000000.0 * r + 1.0);
+tel;

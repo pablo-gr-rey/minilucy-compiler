@@ -17,6 +17,8 @@ let c_folder = ref ""
 let gen_c_main = ref false
 let compare_lv6 = ref false
 let compile = ref false
+let all_nodes = ref false
+let run_main = ref false
 
 let spec =
   [
@@ -37,6 +39,8 @@ let spec =
       "generate a main.c file comparing output of this compiler and output of lv6 on random input"
     );
     ("-compile", Arg.Set compile, "compile files with gcc");
+    ("-all-nodes", Arg.Set all_nodes, "compare all nodes with lv6 (requires -compare-lv6)");
+    ("-run-main", Arg.Set run_main, "run the produced executable");
   ]
 
 let file, main_node =
@@ -76,6 +80,8 @@ let write_file path content =
   Fun.protect ~finally:(fun () -> close_out oc) (fun () -> output_string oc content)
 
 let write_outputs basename output_dir h_content c_content main_content =
+  Lv6_utils.run_command "mkdir" [ "-p"; output_dir ];
+
   let h_path = Filename.concat output_dir (basename ^ ".h") in
   let c_path = Filename.concat output_dir (basename ^ ".c") in
 
@@ -151,18 +157,54 @@ let () =
     end;
     if !objc_only then exit 0;
 
-    let basename = Filename.remove_extension (Filename.basename file) in
-    let h_file, c_file, main_file =
-      C_printer.print_c_files objc_nt basename !gen_c_main !compare_lv6 !main_node
-    in
-    write_outputs basename !c_folder h_file c_file main_file;
+    if Option.is_none !main_node && !gen_c_main && not !all_nodes then begin
+      eprintf
+        "Cannot generate a main.c file without a main node or -all-nodes (in case of lv6-compare)";
+      exit 1
+    end;
 
-    if !compile && !compare_lv6 then begin
-      Lv6_utils.compile_lv6 file (Option.get !main_node) !c_folder;
-      Lv6_utils.compile_c basename !c_folder
-        (Lv6_utils.get_lv6_node_info basename (Option.get !main_node))
-    end
-    else if !compile then Lv6_utils.compile_c_no_lv6 basename !c_folder;
+    let basename = Filename.remove_extension (Filename.basename file) in
+
+    let handle_node use_subdir node =
+      let h_file, c_file, main_file =
+        C_printer.print_c_files objc_nt basename !gen_c_main !compare_lv6 node
+      in
+
+      let folder =
+        if use_subdir && Option.is_some node then Filename.concat !c_folder (Option.get node)
+        else !c_folder
+      in
+      write_outputs basename folder h_file c_file main_file;
+
+      if !compile && !compare_lv6 && Option.is_some node then begin
+        Lv6_utils.compile_lv6 file (Option.get node) folder;
+        Lv6_utils.compile_c basename folder (Lv6_utils.get_lv6_node_info basename (Option.get node));
+        Some (Filename.concat folder "main")
+      end
+      else if !compile then begin
+        Lv6_utils.compile_c_no_lv6 basename folder;
+        Some (Filename.concat folder "main")
+      end
+      else None
+    in
+
+    let lv6_nodes =
+      if Option.is_some !main_node then [ !main_node ]
+      else if !all_nodes then
+        List.map (fun (n : Objc_ast.oc_definition) -> Some n.ocd_name.name) objc_nt
+      else [ None ]
+    in
+
+    let mains = List.map (handle_node (List.length lv6_nodes > 1)) lv6_nodes in
+
+    let run_spec_main = function None -> () | Some f -> Lv6_utils.run_command f [] in
+
+    List.iter run_spec_main mains;
+
+    if !run_main && not !compile then begin
+      eprintf "Cannot specify -run-main without -compile";
+      exit 1
+    end;
 
     (* TODO :o *)
     exit 0
