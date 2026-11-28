@@ -1,7 +1,4 @@
 type location = Lexing.position * Lexing.position
-type base_ty = Tbool | Tint | Treal
-type ty = base_ty list
-type const = Cbool of bool | Cint of int | Creal of float | Cnil of base_ty
 
 let set_file, report_loc =
   let file = ref "" in
@@ -13,28 +10,6 @@ let set_file, report_loc =
     Printf.eprintf "File \"%s\", line %d, characters %d-%d:\n" !file l fc lc
   in
   (set_file, report_loc)
-
-type op =
-  | Op_eq
-  | Op_neq
-  | Op_lt
-  | Op_le
-  | Op_gt
-  | Op_ge
-  | Op_add
-  | Op_sub
-  | Op_mul
-  | Op_div
-  | Op_mod
-  | Op_add_f
-  | Op_sub_f
-  | Op_mul_f
-  | Op_div_f
-  | Op_not
-  | Op_and
-  | Op_or
-  | Op_impl
-  | Op_if
 
 type binop =
   | Binop_eq

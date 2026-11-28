@@ -1,6 +1,5 @@
 %{
 
-  open Asttypes
   open Parse_ast
 
   let loc () = symbol_start_pos (), symbol_end_pos ()
@@ -15,7 +14,7 @@
 %token CONST
 %token COLON
 %token COMMA
-%token <Asttypes.op> COMP
+%token <Parse_ast.p_op> COMP
 %token <bool> CONST_BOOL
 %token <int> CONST_INT
 %token <float> CONST_REAL
@@ -247,11 +246,11 @@ expr:
 
 const:
 | CONST_BOOL
-    { mk_expr (PE_const (Cbool $1)) }
+    { mk_expr (PE_const (PC_bool $1)) }
 | CONST_INT
-    { mk_expr (PE_const (Cint $1)) }
+    { mk_expr (PE_const (PC_int $1)) }
 | CONST_REAL
-    { mk_expr (PE_const (Creal $1)) }
+    { mk_expr (PE_const (PC_real $1)) }
 ;
 
 ident_comma_list:

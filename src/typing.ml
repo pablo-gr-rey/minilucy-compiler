@@ -1,28 +1,30 @@
 open Asttypes
 open Parse_ast
 open Typed_ast
+open Typed_ast_printer
 open Format
 module S = Set.Make (Ident)
 module M = Map.Make (String)
 
 type error =
-  | ExpectedType of ty * ty
-  | ExpectedPattern of ty
-  | ExpectedBase of ty
-  | ExpectedNum of ty
+  | ExpectedBaseType : 'a bty * 'b bty * string -> error (* (has type 'a bty, expected 'b bty) *)
+  | ExpectedNeType : 'a nety * 'b nety * string -> error
+  | ExpectedType : 'a ty * 'b ty * string -> error
+  | UnexpectedUnit
+  | UnexpectedBaseType : 'a bty * string -> error
+  | UnexpectedNeType : 'a nety * string -> error
+  | UnexpectedType : 'a ty * string -> error
+  | InvalidPatternType : 'a ty -> error
+  | InvalidArity of int
+  | InvalidMerge of bool * bool
+  | EmptyOutput of string
   | UnboundVar of string
   | UnboundNode of string
-  | TooFewArguments
-  | TooManyArguments
-  | Clash of string
-  | ConstantExpected
+  | UndefinedVars of Ident.t list
+  | RedefVar of string
+  | RedefNode of string
+  | DefinedTwice of Ident.t
   | Other of string
-  | FlatTuple
-  | UndefinedOutputs of string list
-  | InputVar of string
-  | InvalidIOClock of string
-  | Causality
-  | Unimplemented of string
 
 exception Error of location * error
 
@@ -33,20 +35,6 @@ let errors loc s = error loc (Other s)
 let warning loc fmt =
   report_loc loc;
   Format.kasprintf (fun s -> eprintf "Warning: %s\n@." s) fmt
-
-let print_base_type fmt = function
-  | Tbool -> fprintf fmt "bool"
-  | Tint -> fprintf fmt "int"
-  | Treal -> fprintf fmt "real"
-
-let print_type fmt = function
-  | [] -> fprintf fmt "empty tuple"
-  | [ t ] -> print_base_type fmt t
-  | t :: tl ->
-      fprintf fmt "(";
-      print_base_type fmt t;
-      List.iter (fun t -> fprintf fmt " * %a" print_base_type t) tl;
-      fprintf fmt ")"
 
 let print_op_int = function
   | Op_add -> "+"
@@ -63,419 +51,493 @@ let print_op_real = function
   | _ -> ""
 
 let report fmt = function
+  | ExpectedBaseType (bty1, bty2, str) ->
+      fprintf fmt "(base) type mismatch while typing %s: got type %a, expected type %a" str
+        print_bty bty1 print_bty bty2
+  | ExpectedNeType (nty1, nty2, str) ->
+      fprintf fmt "(non-empty) type mismatch while typing %s: got type %a, expected type %a" str
+        print_nety nty1 print_nety nty2
+  | ExpectedType (ty1, ty2, str) ->
+      fprintf fmt "type mismatch while typing %s: got type %a, expected type %a" str print_ty ty1
+        print_ty ty2
+  | UnexpectedUnit -> fprintf fmt "unexpected unit expression"
+  | UnexpectedBaseType (bty, str) ->
+      fprintf fmt "unexpected (base) type %a while typing %s" print_bty bty str
+  | UnexpectedNeType (nety, str) ->
+      fprintf fmt "unexpected (non-empty) type %a while typing %s" print_nety nety str
+  | UnexpectedType (ty, str) -> fprintf fmt "unexpected type %a while typing %s" print_ty ty str
+  | InvalidPatternType ty ->
+      begin match ty with
+      | TY_unit -> fprintf fmt "this expression has type unit but is part of a pattern"
+      | TY_nty nety ->
+          fprintf fmt "nested patterns are not allowed (got %a instead of a base type)" print_nety
+            nety
+      end
+  | InvalidArity n -> fprintf fmt "invalid arity for function call (expected %d arguments)" n
+  | InvalidMerge (b1, b2) ->
+      fprintf fmt "invalid merge: got cases (%b, %b) but expected (true, false) or (false, true)" b1
+        b2
+  | EmptyOutput n -> fprintf fmt "node %s has no output variable" n
   | UnboundVar id -> fprintf fmt "unbound variable %s" id
   | UnboundNode id -> fprintf fmt "unbound node %s" id
-  | ExpectedType (t1, t2) ->
-      fprintf fmt "this expression has type %a but is expected to have type %a" print_type t1
-        print_type t2
-  | ExpectedPattern ty -> fprintf fmt "this pattern is expected to have type %a" print_type ty
-  | ExpectedBase ty ->
-      fprintf fmt "this expression has type %a but is expected to have a type simple type"
-        print_type ty
-  | ExpectedNum ty ->
-      fprintf fmt "this expression has type %a but is expected to have type int or real" print_type
-        ty
-  | Clash id -> fprintf fmt "The variable %s is defined several times" id
-  | TooFewArguments -> fprintf fmt "too few arguments"
-  | TooManyArguments -> fprintf fmt "too many arguments"
-  | ConstantExpected -> fprintf fmt "this expression sould be a constant"
+  | UndefinedVars l ->
+      fprintf fmt "these output or local variables were not defined: %a"
+        (print_list Ident.print "; ") l
+  | RedefVar x -> fprintf fmt "variable %s already exists" x
+  | RedefNode x -> fprintf fmt "node %s already exists" x
+  | DefinedTwice x -> fprintf fmt "variable %a defined in several equations" Ident.print_full x
   | Other s -> fprintf fmt "%s" s
-  | FlatTuple -> fprintf fmt "nested tuples are forbidden"
-  | UndefinedOutputs l ->
-      fprintf fmt "those output variables are undefined:%a"
-        (fun fmt -> List.iter (fun x -> fprintf fmt "%s " x))
-        l
-  | InputVar s -> fprintf fmt "%s is an input variable" s
-  | InvalidIOClock s -> fprintf fmt "Input or output variable %s is expected to be on base clock" s
-  | Causality -> fprintf fmt "problem of causality"
-  | Unimplemented s -> fprintf fmt "not implemented: %s" s
 
-let int_of_real = Ident.make "int_of_real" Ident.Prim
-let real_of_int = Ident.make "real_of_int" Ident.Prim
+type io = Vinput | Voutput | Vlocal
 
-module Delta = struct
-  let prims =
-    [
-      ("int_of_real", (int_of_real, ([ Treal ], [ Tint ])));
-      ("real_of_int", (real_of_int, ([ Tint ], [ Treal ])));
-    ]
-
-  let nodes = Hashtbl.create 97
-  let is_primitive f = List.mem_assoc f prims
-  let find n = try (Hashtbl.find nodes n, false) with Not_found -> (List.assoc n prims, true)
-
-  let add x t =
-    let x' = Ident.make x Ident.Node in
-    Hashtbl.replace nodes x (x', t);
-    x'
-
-  let save () = Hashtbl.fold (fun key (_, ty) env -> (key, ty) :: env) nodes []
-end
-
-type io = Vinput | Vpatt
-
+(* env for the variables *)
 module Gamma = struct
-  type t = (Ident.t * base_ty * string option * io) M.t
+  type t = boxed_typed_var M.t
 
   let empty = M.empty
 
-  let add loc env x t ck io =
-    if M.mem x env then error loc (Clash x);
+  let add loc env name var =
+    if M.mem name env then error loc (RedefVar name);
 
-    let find_ck id =
-      if not (M.mem id env) then error loc (UnboundVar id)
-      else
-        let var, _, _, _ = M.find id env in
-        var
-    in
-    let ck' =
-      match ck with
-      | PC_base -> TC_base
-      | PC_when id -> TC_when (TC_base, find_ck id)
-      | PC_whennot id -> TC_whennot (TC_base, find_ck id)
-    in
+    M.add name var env
 
-    let x' = Ident.make x Ident.Stream in
-    M.add x (x', t, ck', io) env
-
-  let adds loc io = List.fold_left (fun env (x, t, ck) -> add loc env x t ck io)
+  let adds loc = List.fold_left (fun env (name, var) -> add loc env name var)
   let find loc env x = try M.find x env with Not_found -> error loc (UnboundVar x)
-
-  let patts_vars env =
-    M.fold (fun _ (x, _, _, io) s -> if io = Vpatt then S.add x s else s) env S.empty
 end
 
-let base_ty_of_ty loc t = match t with [ t' ] -> t' | _ -> error loc (ExpectedBase t)
-let compatible_base actual_ty expected_ty = actual_ty = expected_ty
+let eq_bty_err : type a b. a bty -> b bty -> location -> string -> (a, b) eq =
+ fun x y loc str ->
+  match eq_bty x y with None -> error loc (ExpectedBaseType (x, y, str)) | Some Refl -> Refl
 
-let compatible actual_ty expected_ty =
-  try
-    List.fold_left2
-      (fun well_t ac_t ex_t ->
-        let well_t' = compatible_base ac_t ex_t in
-        well_t && well_t')
-      true actual_ty expected_ty
-  with Invalid_argument _ -> false
+let eq_nety_err : type a b. a nety -> b nety -> location -> string -> (a, b) eq =
+ fun x y loc str ->
+  match eq_nety x y with None -> error loc (ExpectedNeType (x, y, str)) | Some Refl -> Refl
 
-let real_expr_of_expr te =
-  match te.texpr_type with
-  | [ Treal ] -> te
-  | [ Tint ] ->
-      {
-        texpr_desc = TE_prim (real_of_int, [ te ]);
-        texpr_type = [ Treal ];
-        texpr_loc = (Lexing.dummy_pos, Lexing.dummy_pos);
-      }
-  | _ -> assert false
+let eq_ty_err : type a b. a ty -> b ty -> location -> string -> (a, b) eq =
+ fun x y loc str ->
+  match eq_ty x y with None -> error loc (ExpectedType (x, y, str)) | Some Refl -> Refl
 
-let real_op_of_int_op op =
-  match op with
-  | Op_add -> Op_add_f
-  | Op_sub -> Op_sub_f
-  | Op_mul -> Op_mul_f
-  | Op_div -> Op_div_f
-  | _ -> op
+(* quite often, the type inferred by OCaml is less general than it should, so we have to add annotations *)
+let ty_of_bty : type a. a bty -> a ty = fun bty -> TY_nty (NTY_bty bty)
 
-let not_a_nested_tuple e loc =
-  match e with
-  | PE_tuple el ->
-      List.iter (fun e -> match e.pexpr_desc with PE_tuple _ -> error loc FlatTuple | _ -> ()) el
-  | _ -> assert false
+let nety_of_ty : type a. a ty -> location -> a nety =
+ fun ty loc -> match ty with TY_nty nety -> nety | _ -> error loc UnexpectedUnit
 
-let rec is_constant env e =
-  match e.texpr_desc with
-  | TE_const _ -> true
-  | TE_tuple el -> List.for_all (is_constant env) el
-  | _ -> false
+let ty_of_pair a b = TY_nty (NTY_pair (NTY_bty a, NTY_bty b))
 
-let rec const_of_expr e =
-  match e.texpr_desc with
-  | TE_const c -> [ c ]
-  | TE_tuple el -> List.fold_right (fun e acc -> const_of_expr e @ acc) el []
-  | _ -> assert false
+let bty_of_pty = function
+  | Tint -> Box_bty BTY_int
+  | Treal -> Box_bty BTY_real
+  | Tbool -> Box_bty BTY_bool
 
-let type_constant = function
-  | Cbool _ -> [ Tbool ]
-  | Cint _ -> [ Tint ]
-  | Creal _ -> [ Treal ]
-  | Cnil _ -> failwith "type_constant nil"
+module Prims = struct
+  (* we have to create runtime specifications for the functions to store runtime descriptions of the input and output types (for the simple information of e.g.   | TYP_eq : ('a * 'a, bool) typed_prim we cannot extract a function that verifies that the input type is TY_nty (NTY_pair (ne, ne)) and builds a runtime description of the return type, so we do that here *)
+  (* since we only have a few polymorphic primitives, we handle them by hand (e.g. a specification that takes the unknown argument and returns the corresponding spec) and not in a general way, but we'll have to do that for clocks anyway *)
+  let box func input_ty output_ty = Box_fun_spec { func = TYF_prim func; input_ty; output_ty }
 
-let rec type_expr env e =
-  let desc, t = type_expr_desc env e.pexpr_loc e.pexpr_desc in
-  { texpr_desc = desc; texpr_type = t; texpr_loc = e.pexpr_loc }
+  (* unop *)
+  let not_spec = box TYP_not (ty_of_bty BTY_bool) (ty_of_bty BTY_bool)
+  let neg_spec = box TYP_neg (ty_of_bty BTY_int) (ty_of_bty BTY_int)
+  let neg_f_spec = box TYP_neg_f (ty_of_bty BTY_real) (ty_of_bty BTY_real)
 
-and type_expr_desc env loc = function
-  | PE_const c -> (TE_const c, type_constant c)
-  | PE_ident x ->
-      let x, ty, _, _ = Gamma.find loc env x in
-      (TE_ident x, [ ty ])
-  | PE_op (Op_not, [ e ]) ->
-      let tt = [ Tbool ] in
-      let te = expected_type env e tt in
-      (TE_op (Op_not, [ te ]), tt)
-  | PE_op (Op_sub, [ e ]) ->
-      let te = type_expr env e in
-      begin match te.texpr_type with
-      | [ Tint ] -> (TE_op (Op_sub, [ te ]), [ Tint ])
-      | [ Treal ] -> (TE_op (Op_sub_f, [ te ]), [ Treal ])
-      | ty -> error e.pexpr_loc (ExpectedNum ty)
-      end
-  | PE_op (Op_sub_f, [ e ]) ->
-      let tt = [ Treal ] in
-      let te = expected_type env e tt in
-      (TE_op (Op_sub_f, [ te ]), tt)
-  | PE_op (((Op_and | Op_or | Op_impl) as op), [ e1; e2 ]) ->
-      let tt = [ Tbool ] in
-      let te1 = expected_type env e1 tt in
-      let te2 = expected_type env e2 tt in
-      (TE_op (op, [ te1; te2 ]), tt)
-  | PE_op (((Op_add | Op_sub | Op_mul | Op_div) as op), [ e1; e2 ]) ->
-      let te1 = type_expr env e1 in
-      let te2 = type_expr env e2 in
-      begin match (te1.texpr_type, te2.texpr_type) with
-      | [ Tint ], [ Tint ] -> (TE_op (op, [ te1; te2 ]), [ Tint ])
-      | [ Treal ], [ Treal ] ->
-          warning e1.pexpr_loc "use of %s between real operands is misleading, use %s instead"
-            (print_op_int op) (print_op_real op);
-          (TE_op (real_op_of_int_op op, [ te1; te2 ]), [ Treal ])
-      | [ (Tint | Treal) ], [ (Tint | Treal) ] ->
-          warning e1.pexpr_loc "implicit cast from int to real";
-          (TE_op (real_op_of_int_op op, [ real_expr_of_expr te1; real_expr_of_expr te2 ]), [ Treal ])
-      | [ (Tint | Treal) ], ty -> error e2.pexpr_loc (ExpectedNum ty)
-      | ty, _ -> error e1.pexpr_loc (ExpectedNum ty)
-      end
-  | PE_op (Op_mod, [ e1; e2 ]) ->
-      let tt = [ Tint ] in
-      let te1 = expected_type env e1 tt in
-      let te2 = expected_type env e2 tt in
-      (TE_op (Op_mod, [ te1; te2 ]), tt)
-  | PE_op (((Op_div_f | Op_mul_f | Op_sub_f | Op_add_f) as op), [ e1; e2 ]) ->
-      let tt = [ Treal ] in
-      let te1 = expected_type env e1 tt in
-      let te2 = expected_type env e2 tt in
-      (TE_op (op, [ te1; te2 ]), tt)
-  | PE_op (((Op_eq | Op_neq) as op), [ e1; e2 ]) ->
-      let te1 = type_expr env e1 in
-      let ty1 = te1.texpr_type in
-      let te2 = type_expr env e2 in
-      let ty2 = te2.texpr_type in
-      begin match (ty1, ty2) with
-      | [ t1 ], [ t2 ] when t1 = t2 -> (TE_op (op, [ te1; te2 ]), [ Tbool ])
-      | _ -> error loc (Other "invalid operands to equality")
-      end
-  | PE_op (((Op_lt | Op_le | Op_gt | Op_ge) as op), [ e1; e2 ]) ->
-      let te1 = type_expr env e1 in
-      let ty1 = te1.texpr_type in
-      let te2 = type_expr env e2 in
-      let ty2 = te2.texpr_type in
-      begin match (ty1, ty2) with
-      | [ Tint ], [ Tint ] | [ Treal ], [ Treal ] -> (TE_op (op, [ te1; te2 ]), [ Tbool ])
-      | _ -> error loc (Other "invalid operands to comparison")
-      end
-  | PE_op (Op_if, [ e1; e2; e3 ]) ->
-      let te1 = expected_type env e1 [ Tbool ] in
-      let te2 = type_expr env e2 in
-      let te3 = type_expr env e3 in
-      let well_typed = compatible te2.texpr_type te3.texpr_type in
-      if well_typed then
-        let tt = te2.texpr_type in
-        (TE_op (Op_if, [ te1; te2; te3 ]), tt)
-      else error loc (ExpectedType (te3.texpr_type, te2.texpr_type))
-  | PE_op
-      ( ( Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge | Op_add | Op_sub | Op_mul | Op_div
-        | Op_mod | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f | Op_not | Op_and | Op_or | Op_impl
-        | Op_if ),
-        [] ) ->
-      error loc TooFewArguments
-  | PE_op
-      ( ( Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge | Op_add | Op_mul | Op_div | Op_mod
-        | Op_add_f | Op_mul_f | Op_div_f | Op_and | Op_or | Op_impl | Op_if ),
-        [ _ ] ) ->
-      error loc TooFewArguments
-  | PE_op (Op_not, [ _; _ ]) -> error loc TooManyArguments
-  | PE_op (Op_if, [ _; _ ]) -> error loc TooFewArguments
-  | PE_op
-      ( ( Op_eq | Op_neq | Op_lt | Op_le | Op_gt | Op_ge | Op_add | Op_sub | Op_mul | Op_div
-        | Op_mod | Op_add_f | Op_sub_f | Op_mul_f | Op_div_f | Op_not | Op_and | Op_or | Op_impl
-        | Op_if ),
-        _ ) ->
-      error loc TooManyArguments
-  | PE_app (f, el) ->
-      begin try
-        let (f, (t_in, t_out)), is_prim = Delta.find f in
-        let tel = type_args env loc t_in el in
-        let app_node = if is_prim then TE_prim (f, tel) else TE_app (f, tel) in
-        ( app_node,
-          begin match t_out with [] -> assert false | _ -> t_out
-          end )
-      with Not_found -> error loc (UnboundNode f)
-      end
-  | PE_arrow (e1, e2) ->
-      let te1 = type_expr env e1 in
-      let ty1 = te1.texpr_type in
-      let te2 = type_expr env e2 in
-      let ty2 = te2.texpr_type in
-      let well_typed = compatible ty1 ty2 in
-      if well_typed then (TE_arrow (te1, te2), ty2)
-      else error te2.texpr_loc (ExpectedType (ty2, ty1))
-  | PE_pre e ->
-      let te = type_expr env e in
-      (TE_pre te, te.texpr_type)
-  | PE_tuple el as n ->
-      not_a_nested_tuple n loc;
-      let tel = List.map (type_expr env) el in
-      (TE_tuple tel, List.map (fun e -> base_ty_of_ty e.texpr_loc e.texpr_type) tel)
-  | PE_when (expr, b, ck) -> begin
-      let texpr = type_expr env expr in
-      if not (M.mem ck env) then error loc (UnboundVar ck);
-      let ck_id, ck_type, _, _ = M.find ck env in
-      if ck_type <> Tbool then error loc (ExpectedType ([ Tbool ], [ ck_type ]));
-      (TE_when (texpr, b, ck_id), texpr.texpr_type)
-    end
-  | PE_merge (ck, cons1, e1, cons2, e2) -> begin
-      let te1 = type_expr env e1 and te2 = type_expr env e2 in
-      if cons1 = cons2 then
-        error loc (Other "must have one case for true and one case for false in merge");
-      if not (compatible te1.texpr_type te2.texpr_type) then
-        error loc (ExpectedType (te2.texpr_type, te1.texpr_type));
-      if not (M.mem ck env) then error loc (UnboundVar ck);
-      let ck_id, ck_type, _, _ = M.find ck env in
-      if ck_type <> Tbool then error loc (ExpectedType ([ Tbool ], [ ck_type ]));
-      ((if cons1 then TE_merge (ck_id, te1, te2) else TE_merge (ck_id, te2, te1)), te1.texpr_type)
-    end
-  | PE_fby (e1, e2) -> begin
-      let te1 = type_expr env e1 and te2 = type_expr env e2 in
-      if not (compatible te1.texpr_type te2.texpr_type) then
-        error loc (ExpectedType (te2.texpr_type, te1.texpr_type));
-      (TE_fby (te1, te2), te1.texpr_type)
-    end
+  (* equality (polymorphic) *)
+  let eq_spec nety = box TYP_eq (TY_nty (NTY_pair (nety, nety))) (ty_of_bty BTY_bool)
+  let neq_spec nety = box TYP_neq (TY_nty (NTY_pair (nety, nety))) (ty_of_bty BTY_bool)
 
-and type_args env loc params_ty el =
-  let tel = List.map (type_expr env) el in
-  let actual_types =
-    List.rev
-      begin
-        List.fold_left (fun res te -> List.rev_append te.texpr_type res) [] tel
-      end
+  (* comparisons (may work on integer and real) *)
+  let lt_spec : type a. a nety -> location -> boxed_fun_spec =
+   fun nety loc ->
+    match nety with
+    | NTY_pair (NTY_bty BTY_int, _) -> box TYP_lt (ty_of_pair BTY_int BTY_int) (ty_of_bty BTY_bool)
+    | NTY_pair (NTY_bty BTY_real, _) ->
+        box TYP_lt_f (ty_of_pair BTY_real BTY_real) (ty_of_bty BTY_bool)
+    | _ -> error loc (UnexpectedNeType (nety, "operator <"))
+
+  let le_spec : type a. a nety -> location -> boxed_fun_spec =
+   fun nety loc ->
+    match nety with
+    | NTY_pair (NTY_bty BTY_int, _) -> box TYP_le (ty_of_pair BTY_int BTY_int) (ty_of_bty BTY_bool)
+    | NTY_pair (NTY_bty BTY_real, _) ->
+        box TYP_le_f (ty_of_pair BTY_real BTY_real) (ty_of_bty BTY_bool)
+    | _ -> error loc (UnexpectedNeType (nety, "operator <="))
+
+  let gt_spec : type a. a nety -> location -> boxed_fun_spec =
+   fun nety loc ->
+    match nety with
+    | NTY_pair (NTY_bty BTY_int, _) -> box TYP_gt (ty_of_pair BTY_int BTY_int) (ty_of_bty BTY_bool)
+    | NTY_pair (NTY_bty BTY_real, _) ->
+        box TYP_gt_f (ty_of_pair BTY_real BTY_real) (ty_of_bty BTY_bool)
+    | _ -> error loc (UnexpectedNeType (nety, "operator >"))
+
+  let ge_spec : type a. a nety -> location -> boxed_fun_spec =
+   fun nety loc ->
+    match nety with
+    | NTY_pair (NTY_bty BTY_int, _) -> box TYP_ge (ty_of_pair BTY_int BTY_int) (ty_of_bty BTY_bool)
+    | NTY_pair (NTY_bty BTY_real, _) ->
+        box TYP_ge_f (ty_of_pair BTY_real BTY_real) (ty_of_bty BTY_bool)
+    | _ -> error loc (UnexpectedNeType (nety, "operator >="))
+
+  (* arithmetic (integer and real) (sub may be unary or binary!) *)
+  let add_spec = box TYP_add (ty_of_pair BTY_int BTY_int) (ty_of_bty BTY_int)
+
+  let sub_spec : type a. a nety -> boxed_fun_spec =
+   fun nety ->
+    match nety with
+    | NTY_bty _ -> box TYP_neg (ty_of_bty BTY_int) (ty_of_bty BTY_int)
+    | _ -> box TYP_sub (ty_of_pair BTY_int BTY_int) (ty_of_bty BTY_int)
+  (* if this is not the right type, it will be caught later. we just make an arbitrary choice between unop sub and binop sub for ill-typed terms *)
+
+  let mul_spec = box TYP_mul (ty_of_pair BTY_int BTY_int) (ty_of_bty BTY_int)
+  let div_spec = box TYP_div (ty_of_pair BTY_int BTY_int) (ty_of_bty BTY_int)
+  let mod_spec = box TYP_mod (ty_of_pair BTY_int BTY_int) (ty_of_bty BTY_int)
+  let add_f_spec = box TYP_add_f (ty_of_pair BTY_real BTY_real) (ty_of_bty BTY_real)
+
+  let sub_f_spec : type a. a nety -> boxed_fun_spec =
+   fun nety ->
+    match nety with
+    | NTY_bty _ -> box TYP_neg_f (ty_of_bty BTY_real) (ty_of_bty BTY_real)
+    | _ -> box TYP_sub_f (ty_of_pair BTY_real BTY_real) (ty_of_bty BTY_real)
+
+  let mul_f_spec = box TYP_mul_f (ty_of_pair BTY_real BTY_real) (ty_of_bty BTY_real)
+  let div_f_spec = box TYP_div_f (ty_of_pair BTY_real BTY_real) (ty_of_bty BTY_real)
+
+  (* boolean operators *)
+  let and_spec = box TYP_and (ty_of_pair BTY_bool BTY_bool) (ty_of_bty BTY_bool)
+  let or_spec = box TYP_or (ty_of_pair BTY_bool BTY_bool) (ty_of_bty BTY_bool)
+  let impl_spec = box TYP_impl (ty_of_pair BTY_bool BTY_bool) (ty_of_bty BTY_bool)
+
+  (* if *)
+  let if_spec nety =
+    box TYP_if (TY_nty (NTY_pair (NTY_bty BTY_bool, NTY_pair (nety, nety)))) (TY_nty nety)
+
+  (* conversions *)
+  let int_of_real_spec = box TYP_int_of_real (ty_of_bty BTY_real) (ty_of_bty BTY_int)
+  let real_of_int_spec = box TYP_real_of_int (ty_of_bty BTY_int) (ty_of_bty BTY_real)
+
+  (* clock primitives *)
+  let arrow_spec nety = box TYP_arrow (TY_nty (NTY_pair (nety, nety))) (TY_nty nety)
+  let fby_spec nety = box TYP_fby (TY_nty (NTY_pair (nety, nety))) (TY_nty nety)
+  let pre_spec nety = box TYP_pre (TY_nty nety) (TY_nty nety)
+  let when_spec var b nety = box (TYP_when (var, b)) (TY_nty nety) (TY_nty nety)
+  let merge_spec var nety = box (TYP_merge var) (TY_nty (NTY_pair (nety, nety))) (TY_nty nety)
+end
+
+let rec type_expr_list nodes env loc exprs =
+  let mk : type a. a t_expr_desc -> a ty -> boxed_t_expr =
+   fun ted ty -> Box_t_expr { texpr_desc = ted; texpr_ty = ty; texpr_loc = loc }
   in
-  let well_typed = compatible actual_types params_ty in
-  if well_typed then tel else error loc (ExpectedType (actual_types, params_ty))
 
-and expected_type env e tt =
-  let te = type_expr env e in
-  let ty = te.texpr_type in
-  if ty = tt then te else error e.pexpr_loc (ExpectedType (ty, tt))
+  match exprs with
+  | [] -> mk TE_unit TY_unit
+  | [ pe ] -> type_expr nodes env pe
+  | pe :: pel ->
+      (* we build a canonical representation NTY_pair (NTY_bty bt1, NTY_pair (...)) *)
+      let (Box_t_expr te1) = type_expr nodes env pe in
+      let (Box_t_expr te2) = type_expr_list nodes env loc pel in
+      mk
+        (TE_pair (te1, te2))
+        (TY_nty (NTY_pair (nety_of_ty te1.texpr_ty loc, nety_of_ty te2.texpr_ty loc)))
 
-and expected_base_type env e =
-  let te = type_expr env e in
-  match te.texpr_type with [ _ ] -> te | _ -> error e.pexpr_loc (ExpectedBase te.texpr_type)
+and type_expr nodes env pexpr =
+  let loc = pexpr.pexpr_loc in
+  let mk : type a. a t_expr_desc -> a ty -> boxed_t_expr =
+   fun ted ty -> Box_t_expr { texpr_desc = ted; texpr_ty = ty; texpr_loc = loc }
+  in
+  let type_expr_ = type_expr nodes env in
 
-let rec type_patt env p =
-  let desc, t, ck = type_patt_desc env p.ppatt_loc p.ppatt_desc in
-  { tpatt_desc = desc; tpatt_type = t; tpatt_clock = ck; tpatt_loc = p.ppatt_loc }
+  (* check that the expression has the input type of the function, and build a fun of the output type of the function *)
+  let mk_fun : type a. a t_expr -> boxed_fun_spec -> string -> boxed_t_expr =
+   (* we use the runtime description of the input & return types provided by the spec *)
+   fun te (Box_fun_spec spec) str ->
+    let Refl = eq_ty_err te.texpr_ty spec.input_ty loc ("arguments of " ^ str) in
+    Box_t_expr { texpr_desc = TE_app (spec.func, te); texpr_ty = spec.output_ty; texpr_loc = loc }
+  in
 
-and type_patt_desc env loc patt =
-  match patt with
-  | PP_ident x ->
-      begin match Gamma.find loc env x with
-      | x, t, ck, Vpatt -> ([ x ], [ t ], [ ck ])
-      | _ -> error loc (InputVar x)
+  let error_ err = error loc err in
+
+  match pexpr.pexpr_desc with
+  | PE_const c ->
+      begin match c with
+      | PC_int i -> mk (TE_const (TC_int i)) (ty_of_bty BTY_int)
+      | PC_bool b -> mk (TE_const (TC_bool b)) (ty_of_bty BTY_bool)
+      | PC_real b -> mk (TE_const (TC_real b)) (ty_of_bty BTY_real)
       end
-  | PP_tuple pl ->
-      let pl_tyl =
-        List.map
-          (fun x ->
-            match Gamma.find loc env x with
-            | x, ty, ck, Vpatt -> (x, ty, ck)
-            | _ -> error loc (InputVar x))
-          pl
+  | PE_ident name ->
+      let (Box_typed_var var) = Gamma.find loc env name in
+      let _, bty = var in
+      mk (TE_ident var) (ty_of_bty bty)
+  | PE_op (op, pel) ->
+      (* we could also provide handle polymorphism in a general way, as a fun extension of the project, but since here it's only a couple of primitives (eq, neq, if and clock) we can do it by hand *)
+      let (Box_t_expr args) = type_expr_list nodes env loc pel in
+      let nety = nety_of_ty args.texpr_ty loc in
+      let mk_prim spec = mk_fun args spec ("operator " ^ op_name op) in
+
+      (* if the type of args is 'a * 'a, return 'a (as runtime desc) (for eq and fby) *)
+      (* we do not check that both part of the pairs are equal, as this is done later in the typing *)
+      let get_pair_type () =
+        match nety with NTY_pair (ne1, _) -> Box_nety ne1 | _ -> error_ (InvalidArity 2)
       in
-      (* on transforme une liste de [(x, ty, ck)] en [x], [ty], [ck]*)
-      List.fold_right
-        (fun (e1, e2, e3) (l1, l2, l3) -> (e1 :: l1, e2 :: l2, e3 :: l3))
-        pl_tyl ([], [], [])
+      (* if the type of args is 'a * ('b * 'b), return 'b (does not check equality) (for if and merge) *)
+      let get_snd_pair_type () =
+        match nety with
+        | NTY_pair (_, NTY_pair (ne2, _)) -> Box_nety ne2
+        | _ -> error_ (InvalidArity 3)
+      in
+      begin match op with
+      | Op_eq ->
+          let (Box_nety nety) = get_pair_type () in
+          (* mk_prim checks that the two arguments have the same type *)
+          mk_prim (Prims.eq_spec nety)
+      | Op_neq ->
+          let (Box_nety nety) = get_pair_type () in
+          mk_prim (Prims.neq_spec nety)
+      | Op_lt -> mk_prim (Prims.lt_spec nety loc) (* comparison might take int*int or float*float *)
+      | Op_le -> mk_prim (Prims.le_spec nety loc)
+      | Op_gt -> mk_prim (Prims.gt_spec nety loc)
+      | Op_ge -> mk_prim (Prims.ge_spec nety loc)
+      | Op_add -> mk_prim Prims.add_spec
+      | Op_sub -> mk_prim (Prims.sub_spec nety) (* might be unary or binary *)
+      | Op_mul -> mk_prim Prims.mul_spec
+      | Op_div -> mk_prim Prims.div_spec
+      | Op_mod -> mk_prim Prims.mod_spec
+      | Op_add_f -> mk_prim Prims.add_f_spec
+      | Op_sub_f -> mk_prim (Prims.sub_f_spec nety)
+      | Op_mul_f -> mk_prim Prims.mul_f_spec
+      | Op_div_f -> mk_prim Prims.div_f_spec
+      | Op_not -> mk_prim Prims.not_spec
+      | Op_and -> mk_prim Prims.and_spec
+      | Op_or -> mk_prim Prims.or_spec
+      | Op_impl -> mk_prim Prims.impl_spec
+      | Op_if ->
+          let (Box_nety nety) = get_snd_pair_type () in
+          mk_prim (Prims.if_spec nety)
+      end
+  | PE_app (name, pel) ->
+      let (Box_t_expr args) = type_expr_list nodes env loc pel in
 
-let type_equation env eq =
-  let patt = type_patt env eq.peq_patt in
-  let expr = type_expr env eq.peq_expr in
-  let well_typed = compatible expr.texpr_type patt.tpatt_type in
-  if well_typed then { teq_patt = patt; teq_expr = expr }
-  else error eq.peq_expr.pexpr_loc (ExpectedType (expr.texpr_type, patt.tpatt_type))
+      (* name can be either a primitive or a node *)
+      if name = "int_of_real" || name = "int" then
+        mk_fun args Prims.int_of_real_spec "primitive int_of_real"
+      else if name = "real_of_int" || name = "real" then
+        mk_fun args Prims.real_of_int_spec "primitive real_of_int"
+      else
+        let (Box_t_node node) =
+          match M.find_opt name nodes with None -> error_ (UnboundNode name) | Some node -> node
+        in
+        let (TN_desc (intput_patt, output_patt, _)) = node.tn_desc in
+        let node_spec =
+          Box_fun_spec
+            {
+              func = TYF_node node;
+              input_ty = intput_patt.tpatt_type;
+              output_ty = TY_nty output_patt.tnepatt_type;
+            }
+        in
+        mk_fun args node_spec ("node " ^ node.tn_name.name)
+  | PE_arrow (pe1, pe2) ->
+      let (Box_t_expr e1) = type_expr_ pe1 in
+      let (Box_t_expr e2) = type_expr_ pe2 in
+      let nety1 = nety_of_ty e1.texpr_ty loc and nety2 = nety_of_ty e2.texpr_ty loc in
+      mk_fun
+        {
+          texpr_desc = TE_pair (e1, e2);
+          texpr_ty = TY_nty (NTY_pair (nety1, nety2));
+          texpr_loc = loc;
+        }
+        (Prims.arrow_spec nety1) "operator ->"
+  | PE_pre pe ->
+      let (Box_t_expr e) = type_expr_ pe in
+      let nety = nety_of_ty e.texpr_ty loc in
+      mk_fun e (Prims.pre_spec nety) "operator pre"
+  | PE_tuple el ->
+      (* we build the canonical representation : NTY_pair (e1, NTY_pair (e2, NTY_pair ...)) *)
+      (* without adding a unit at the end, unless the list is empty *)
+      let rec handle = function
+        | [] -> mk TE_unit TY_unit
+        | [ pe ] -> type_expr_ pe
+        | pe :: pel ->
+            let (Box_t_expr e) = type_expr_ pe in
+            let (Box_t_expr el) = handle pel in
+            (* neither e nor el must have unit type, otherwise the tuple is ill-formed *)
+            mk
+              (TE_pair (e, el))
+              (TY_nty (NTY_pair (nety_of_ty e.texpr_ty loc, nety_of_ty el.texpr_ty loc)))
+      in
+      handle el
+  | PE_when (pe, b, name) ->
+      (* thanks to GADTs, this is very quick and we get a nicely typed AST! *)
+      let (Box_typed_var var) = Gamma.find loc env name in
+      let Refl = eq_bty_err (snd var) BTY_bool loc "operator when" in
+      let (Box_t_expr te) = type_expr_ pe in
+      mk_fun te (Prims.when_spec var b (nety_of_ty te.texpr_ty loc)) "operator when"
+  | PE_merge (name, b1, pe1, b2, pe2) ->
+      (* merge x (b1 -> e, ..., e) (b2 -> e, ..., e) *)
+      let (Box_typed_var var) = Gamma.find loc env name in
+      let Refl = eq_bty_err (snd var) BTY_bool loc "operator merge" in
+      let (Box_t_expr e1) = type_expr_ pe1 in
+      let (Box_t_expr e2) = type_expr_ pe2 in
+      let nety1 = nety_of_ty e1.texpr_ty loc and nety2 = nety_of_ty e2.texpr_ty loc in
+      begin match (b1, b2) with
+      | true, false ->
+          mk_fun
+            {
+              texpr_desc = TE_pair (e1, e2);
+              texpr_ty = TY_nty (NTY_pair (nety1, nety2));
+              texpr_loc = loc;
+            }
+            (Prims.merge_spec var nety1) "operator merge"
+      | false, true ->
+          (* we swap e2 and e1 (thanks to GADT, ocaml won't type if we also forget to swap nety2 and nety1) *)
+          mk_fun
+            {
+              texpr_desc = TE_pair (e2, e1);
+              texpr_ty = TY_nty (NTY_pair (nety2, nety1));
+              texpr_loc = loc;
+            }
+            (Prims.merge_spec var nety1) "operator merge"
+      | _ -> error_ (InvalidMerge (b1, b2))
+      end
+  | PE_fby (pe1, pe2) ->
+      let (Box_t_expr e1) = type_expr_ pe1 in
+      let (Box_t_expr e2) = type_expr_ pe2 in
+      let nety1 = nety_of_ty e1.texpr_ty loc and nety2 = nety_of_ty e2.texpr_ty loc in
+      mk_fun
+        {
+          texpr_desc = TE_pair (e1, e2);
+          texpr_ty = TY_nty (NTY_pair (nety1, nety2));
+          texpr_loc = loc;
+        }
+        (Prims.fby_spec nety1) "operator fby"
 
-let add_vars_of_patt loc s { teq_patt = { tpatt_desc = p; _ }; _ } =
-  let add x s =
-    if S.mem x s then error loc (Clash x.Ident.name);
-    S.add x s
+(* non-empty pattern for equations *)
+let type_ppatt env patt =
+  let loc = patt.ppatt_loc in
+  let mk ne_patt nety =
+    Box_t_ne_patt { tnepatt_desc = ne_patt; tnepatt_type = nety; tnepatt_loc = loc }
   in
-  List.fold_left (fun s x -> add x s) s p
+  match patt.ppatt_desc with
+  | PP_ident id ->
+      let (Box_typed_var var) = Gamma.find loc env id in
+      let _, bty = var in
+      mk (TPNE_var var) (NTY_bty bty)
+  | PP_tuple idl ->
+      let rec handle = function
+        | [] -> error loc UnexpectedUnit
+        | [ id ] ->
+            let (Box_typed_var var) = Gamma.find loc env id in
+            let _, bty = var in
+            mk (TPNE_var var) (NTY_bty bty)
+        | id :: idl ->
+            let (Box_typed_var var) = Gamma.find loc env id in
+            let _, bty = var in
+            let (Box_t_ne_patt tpatt) = handle idl in
+            mk (TPNE_cons (var, tpatt)) (NTY_pair (NTY_bty bty, tpatt.tnepatt_type))
+      in
+      handle idl
 
-let check_outputs loc env equs =
-  let s = List.fold_left (add_vars_of_patt loc) S.empty equs in
-  let not_defined = S.diff (Gamma.patts_vars env) s in
-  if not (S.is_empty not_defined) then
-    error loc (UndefinedOutputs (List.map (fun x -> x.Ident.name) (S.elements not_defined)))
+let type_equation nodes env eq =
+  let (Box_t_ne_patt patt) = type_ppatt env eq.peq_patt in
+  let (Box_t_expr expr) = type_expr nodes env eq.peq_expr in
+  let Refl = eq_ty_err expr.texpr_ty (TY_nty patt.tnepatt_type) patt.tnepatt_loc "equation" in
+  TQ_eq (patt, expr)
 
-let check_causality loc inputs equs =
-  begin try ignore (Scheduling.schedule_equs inputs equs)
-  with Scheduling.Causality -> error loc Causality
-  end
+let build_var env loc name pty =
+  let (Box_bty bty) = bty_of_pty pty in
+  let ty_var = Box_typed_var (Ident.make name Ident.Stream, bty) in
+  (Gamma.add loc env name ty_var, ty_var)
 
-(* TODO: for now, all input and output must be on the base clock *)
-let check_base_clock loc ((var, _, ck) : typed_var) =
-  if ck <> TC_base then error loc (InvalidIOClock var.name)
-
-(* let check_nonemp *)
-
-let type_node n =
-  let env = Gamma.adds n.pn_loc Vinput Gamma.empty n.pn_input in
-  let env = Gamma.adds n.pn_loc Vpatt env (n.pn_output @ n.pn_local) in
-  let equs = List.map (type_equation env) n.pn_equs in
-  check_outputs n.pn_loc env equs;
-  let t_in = List.map (fun (_, ty, _) -> ty) n.pn_input in
-  let t_out = List.map (fun (_, ty, _) -> ty) n.pn_output in
-  let name = Delta.add n.pn_name (t_in, t_out) in
-  let input =
-    List.map
-      (fun (x, ty, _) ->
-        let x', _, ck, _ = Gamma.find n.pn_loc env x in
-        (x', ty, ck))
-      n.pn_input
+(* to type input/output/temp lists (returns both the updated env and the patt) *)
+let rec build_nepatt env node_name loc patt =
+  let mk ne_patt nety =
+    Box_t_ne_patt { tnepatt_desc = ne_patt; tnepatt_type = nety; tnepatt_loc = loc }
   in
-  let output =
-    List.map
-      (fun (x, ty, _) ->
-        let x', _, ck, _ = Gamma.find n.pn_loc env x in
-        (x', ty, ck))
-      n.pn_output
-  in
-  let local =
-    List.map
-      (fun (x, ty, _) ->
-        let x', _, ck, _ = Gamma.find n.pn_loc env x in
-        (x', ty, ck))
-      n.pn_local
-  in
+  match patt with
+  | [] -> error loc (EmptyOutput node_name)
+  | [ (name, pty, _) ] ->
+      let env, Box_typed_var var = build_var env loc name pty in
+      (env, mk (TPNE_var var) (NTY_bty (snd var)))
+  | (name, pty, _) :: p ->
+      let env, Box_typed_var var = build_var env loc name pty in
+      let env, Box_t_ne_patt tpatt = build_nepatt env node_name loc p in
+      (env, mk (TPNE_cons (var, tpatt)) (NTY_pair (NTY_bty (snd var), tpatt.tnepatt_type)))
 
-  List.iter (check_base_clock n.pn_loc) input;
-  List.iter (check_base_clock n.pn_loc) output;
+let build_patt env node_name loc l =
+  let mk patt ty = Box_t_patt { tpatt_desc = patt; tpatt_type = ty; tpatt_loc = loc } in
+  match l with
+  | [] -> (env, mk TP_unit TY_unit)
+  | l ->
+      let env, Box_t_ne_patt nep = build_nepatt env node_name loc l in
+      (env, mk (TP_patt nep.tnepatt_desc) (TY_nty nep.tnepatt_type))
 
+let check_outputs loc equs temp output =
+  let add id set =
+    if S.mem id set then error loc (DefinedTwice id);
+    S.add id set
+  in
+  let rec extract_ne_patt : type a. S.t -> a t_ne_patt_desc -> S.t =
+   fun set nep ->
+    match nep with
+    | TPNE_var (id, _) -> add id set
+    | TPNE_cons ((id, _), nepp) -> extract_ne_patt (add id set) nepp.tnepatt_desc
+  in
+  let extract_patt : type a. S.t -> a t_patt -> S.t =
+   fun set p -> match p.tpatt_desc with TP_unit -> set | TP_patt nep -> extract_ne_patt set nep
+  in
+  let vars = extract_ne_patt (extract_patt S.empty temp) output.tnepatt_desc in
+  let defined =
+    List.fold_left (fun set (TQ_eq (nep, _)) -> extract_ne_patt set nep.tnepatt_desc) S.empty equs
+  in
+  let not_defined = S.diff vars defined in
+  if not (S.is_empty not_defined) then error loc (UndefinedVars (S.elements not_defined))
+
+(* TODO: for now, we do not consider clock annotations, so we emit a warning if we encounter some *)
+let check_base_clock =
+  let warning_emitted = ref false in
+  fun loc (id, _, ck) ->
+    if ck <> PC_base && not !warning_emitted then begin
+      warning_emitted := true;
+      report_loc loc;
+      eprintf
+        "Warning: clock annotations are currently not taken into account and are not checked \
+         against the inferred clock (for variable %s). This warning will be only shown once\n\
+         @."
+        id
+    end
+
+let type_node nodes n =
+  (* build env and input/temp/output patterns *)
+  let env, Box_t_patt input_patt = build_patt M.empty n.pn_name n.pn_loc n.pn_input in
+  let env, Box_t_patt temp_patt = build_patt env n.pn_name n.pn_loc n.pn_local in
+  let env, Box_t_ne_patt output_nepatt = build_nepatt env n.pn_name n.pn_loc n.pn_output in
+
+  (* build equations and check that every output & temp var is defined exactly once *)
+  let equs = List.map (type_equation nodes env) n.pn_equs in
+  check_outputs n.pn_loc equs temp_patt output_nepatt;
+
+  let name = Ident.make n.pn_name Ident.Node in
+
+  (* emit a warning if clock annotations are found *)
+  List.iter (check_base_clock n.pn_loc) n.pn_input;
+  List.iter (check_base_clock n.pn_loc) n.pn_local;
+  List.iter (check_base_clock n.pn_loc) n.pn_output;
+
+  (* causality check & scheduling is now done after normalization, so we can return the node *)
   let node =
-    {
-      tn_name = name;
-      tn_input = input;
-      tn_output = output;
-      tn_local = local;
-      tn_equs = equs;
-      tn_loc = n.pn_loc;
-    }
+    Box_t_node
+      {
+        tn_name = name;
+        tn_desc = TN_desc (input_patt, output_nepatt, temp_patt);
+        tn_equs = equs;
+        tn_loc = n.pn_loc;
+      }
   in
-  (* causality check & scheduling is now done after normalization *)
-  (* check_causality node.tn_loc node.tn_input equs; *)
-  node
+  if M.mem n.pn_name nodes then error n.pn_loc (RedefNode n.pn_name);
+  (M.add n.pn_name node nodes, node)
 
 let type_file f =
-  (* let ft = List.map type_node f in
-  if main <> "" then check_main ft main;
-  ft *)
-  (* on n'a plus besoin que la fonction principale soit type (bool * bool) -> bool *)
-  List.map type_node f
+  let type_aux (env_nodes, node_l) n =
+    let env_nodes, new_n = type_node env_nodes n in
+    (env_nodes, new_n :: node_l)
+  in
+  let _, nodes = List.fold_left type_aux (M.empty, []) f in
+  List.rev nodes

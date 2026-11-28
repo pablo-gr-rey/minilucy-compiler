@@ -1,0 +1,66 @@
+node mismatch() returns (a: int);
+let
+    -- a = false -> 1 + pre a;
+    -- a = 3 + 3.1;
+    -- a = 3.1 +. 2.0;
+    -- a = 1 < 2;
+    a = -2;
+tel;
+
+node undef() returns (a, b: int);
+var c: real;
+let
+    (a, b) = (3+3, 5+5);    -- comment one of these
+    c = -. 5.3;
+tel;
+
+node sum(a: real; b: int) returns (c: int);
+let
+    c = int_of_real(a) + b;
+tel;
+
+node redef(a: int) returns (b: int);
+-- var a: real;
+let
+    b = a;
+tel;
+
+-- node redef(a: bool) returns (b: bool);
+-- let
+--     b = not a;
+-- tel;
+
+node call(a: real; b: int) returns (y: int);
+var c: bool;
+let
+    -- c = sum(b, a);
+    -- c = sum(a, b);
+    c = true and false;
+    y = sum(a, b);
+tel;
+
+node bad_call() returns (y: int);
+let
+    -- y = magic();
+    y = 1;
+tel;
+
+node bad_if(a: int; b: real; c: bool) returns (y: int);
+var d: bool;
+let
+    -- y = if c then a else b;
+    -- y = if c then real_of_int(a) else b;
+    -- y = if a then a else b;
+    (y, d) = if (c and not c) then (a, true) else (int_of_real(b), false);
+tel;
+
+node bad_merge(a: int; b: real; c: bool) returns (y: int);
+var d: bool;
+let
+    -- y = merge c (true -> a) (false -> b);
+    -- y = merge c (true -> real_of_int(a)) (false -> b);
+    -- y = merge a (true -> a) (false -> a+1);
+    -- y = merge (c and c) (true -> a) (false -> a+1);
+    -- y = merge c (true -> a) (true -> a+1);
+    (y, d) = merge c (false -> (a, true)) (true -> (int_of_real(b), false));
+tel;

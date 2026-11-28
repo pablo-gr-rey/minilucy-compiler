@@ -108,7 +108,7 @@ let () =
     end;
     if !type_only then exit 0;
 
-    let nt = Norm.norm_file ft in
+    (* let nt = Norm.norm_file ft in
     if !verbose then begin
       Format.printf "/**************************************/@.";
       Format.printf "/* Norm ast                           */@.";
@@ -190,7 +190,7 @@ let () =
       printf "\n%!";
       Hept_utils.run_command (Filename.concat !c_folder "main") [];
       printf "\nALL TESTS OK\n" (* if not, an exception is thrown *)
-    end;
+    end; *)
 
     (* TODO :o *)
     exit 0
@@ -207,7 +207,7 @@ let () =
       Asttypes.report_loc l;
       eprintf "%a\n@." Typing.report e;
       exit 1
-  | Norm.Error (l, e) ->
+  (* | Norm.Error (l, e) ->
       Asttypes.report_loc l;
       eprintf "%a\n@." Norm.report e;
       exit 1
@@ -230,7 +230,7 @@ let () =
   | C_utils.Error (l, e) ->
       Asttypes.report_loc l;
       eprintf "%a\n@." C_utils.report e;
-      exit 1
+      exit 1 *)
   | e ->
       eprintf "Anomaly: %s\n@." (Printexc.to_string e);
       exit 2

@@ -3,6 +3,62 @@ let
    a = 0 -> 1 + pre a;
 tel;
 
+node pair() returns (a, b: int);
+var c: real;
+let
+    (a, b) = (1, 2 + 3);
+    c = -. 2.4;
+tel;
+
+node quatro(a, b, c, d: int) returns (e: int);
+let
+    e = a+b+c+d;
+tel;
+
+node tt() returns (e: int);
+let
+    -- e = quatro(pair(), pair());
+    e = quatro(1, 2, 3, 4);
+tel;
+
+node dep(x: int; c: bool) returns (y: int);
+let
+    y = x + (1 when c);
+tel;
+
+node whe_n(x: int; c: bool) returns (y: int);
+let
+    y = x when c;
+tel;
+
+node dep2(x: int; c: bool) returns (y: int);
+var b: bool; y1,y2: int;
+let
+    b = c and not c;
+    y1 = whe_n(x, c and not c);
+    y2 = whe_n(x, not (c and not c));
+    y = merge b (true -> y1) (false -> y2);
+tel;
+
+node cyc(c1, c2: bool) returns (d: bool);
+let
+    d = (c1 when c2) and (c2 when c1);
+tel;
+
+node testA1(c: bool; x: int) returns (d: bool; y: int);
+let
+    d = not c;
+    y = x+(1 when c);
+tel;
+
+node testA2() returns (c: bool; x: int);
+var d: bool; y: int;
+let
+    (d, y) = testA1(c, x);
+    c = true fby d;
+    x = 1 fby y;
+tel;
+
 node idiot() returns (a: int);
 let
     a = 3;
@@ -12,6 +68,22 @@ node count_tick(tick: bool) returns (a: int);
 let
    a = 0 -> 1 + pre a;
 tel;
+
+-- node count_reset(tick, res: bool) returns (a: int; b: int);
+-- let
+--     reset
+--         a = count();
+--         b = merge tick (true -> count_tick(true when tick)) (false -> count_tick(true when not tick))
+--     every res;
+-- tel
+
+node test3(res: bool) returns (a: int);
+let
+    -- reset
+        a = 0 fby (1+a);
+    -- every res;
+tel
+
 
 node nomem(a, b: int) returns (c: int);
 let

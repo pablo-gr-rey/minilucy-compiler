@@ -2,7 +2,6 @@
 
   open Lexing
   open Parser
-  open Asttypes
 
   exception Lexical_error of string
 

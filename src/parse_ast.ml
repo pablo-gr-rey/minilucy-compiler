@@ -3,14 +3,39 @@
 open Asttypes
 
 type ident = string
+type p_base_ty = Tbool | Tint | Treal
+type p_ty = p_base_ty list
+type p_const = PC_bool of bool | PC_int of int | PC_real of float
+
+type p_op =
+  | Op_eq
+  | Op_neq
+  | Op_lt
+  | Op_le
+  | Op_gt
+  | Op_ge
+  | Op_add
+  | Op_sub
+  | Op_mul
+  | Op_div
+  | Op_mod
+  | Op_add_f
+  | Op_sub_f
+  | Op_mul_f
+  | Op_div_f
+  | Op_not
+  | Op_and
+  | Op_or
+  | Op_impl
+  | Op_if
 
 type p_expr = { pexpr_desc : p_expr_desc; pexpr_loc : location }
 and p_clock = PC_base | PC_when of ident | PC_whennot of ident
 
 and p_expr_desc =
-  | PE_const of const
+  | PE_const of p_const
   | PE_ident of ident
-  | PE_op of op * p_expr list
+  | PE_op of p_op * p_expr list
   | PE_app of ident * p_expr list
   | PE_arrow of p_expr * p_expr
   | PE_pre of p_expr
@@ -19,8 +44,7 @@ and p_expr_desc =
   | PE_merge of
       ident * bool * p_expr * bool * p_expr (* merge x (b1 -> e, ..., e) (b2 -> e, ..., e) *)
   | PE_fby of p_expr * p_expr
-
-(* no fby for now *)
+(* no reset for now *)
 
 type p_patt = { ppatt_desc : p_patt_desc; ppatt_loc : location }
 and p_patt_desc = PP_ident of ident | PP_tuple of ident list
@@ -29,9 +53,9 @@ type p_equation = { peq_patt : p_patt; peq_expr : p_expr }
 
 type p_node = {
   pn_name : ident;
-  pn_input : (ident * base_ty * p_clock) list;
-  pn_output : (ident * base_ty * p_clock) list;
-  pn_local : (ident * base_ty * p_clock) list;
+  pn_input : (ident * p_base_ty * p_clock) list;
+  pn_output : (ident * p_base_ty * p_clock) list;
+  pn_local : (ident * p_base_ty * p_clock) list;
   pn_equs : p_equation list;
   pn_loc : location;
 }
